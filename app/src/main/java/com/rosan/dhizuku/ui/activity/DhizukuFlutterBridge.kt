@@ -242,8 +242,17 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
     private suspend fun accountData(userId: Int) = withContext(Dispatchers.IO) {
         val accounts = userService.getAccounts(userId)
         val auths = userService.getAccountAuthenticators(userId)
+        val providersByType = auths.groupBy { it.type }
         mapOf(
-            "accounts" to accounts.map { mapOf("userId" to it.userId, "type" to it.type, "name" to it.name) },
+            "accounts" to accounts.map { account ->
+                val provider = providersByType[account.type]?.firstOrNull()
+                mapOf(
+                    "userId" to account.userId,
+                    "type" to account.type,
+                    "name" to account.name,
+                    "providerLabel" to provider?.label
+                )
+            },
             "authenticators" to authenticatorRows(userId, auths, accounts)
         )
     }

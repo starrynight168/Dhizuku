@@ -497,14 +497,6 @@ class _InteractiveListRow extends StatelessWidget {
       child: row(rowTrailing: rowTrailing),
     );
 
-    if (onPressed != null && trailing != null) {
-      return Row(
-        children: [
-          Expanded(child: pressSurface()),
-          trailing!,
-        ],
-      );
-    }
     return pressSurface(rowTrailing: trailing);
   }
 }
@@ -1401,6 +1393,17 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
 
   void _reload() => setState(() => _data = _load());
 
+  String _accountProviderLabel(Map<String, dynamic> account) {
+    final provider = account['providerLabel']?.toString() ?? '';
+    if (provider.isNotEmpty) {
+      return tr(context, 'account_from').replaceAll('{provider}', provider);
+    }
+    return tr(
+      context,
+      'account_type',
+    ).replaceAll('{type}', account['type'].toString());
+  }
+
   Future<void> _toggleAuthenticator(
     Map<String, dynamic> item,
     bool enabled,
@@ -1434,6 +1437,7 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
             child: Text(tr(context, 'cancel')),
           ),
           FilledButton(
+            style: FilledButton.styleFrom(shape: const StadiumBorder()),
             onPressed: () => Navigator.pop(context, true),
             child: Text(tr(context, 'remove')),
           ),
@@ -1472,7 +1476,10 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
           child: ListView(
             padding: const EdgeInsets.all(12),
             children: [
-              _SectionTitle(tr(context, 'accounts')),
+              _DescribedSectionTitle(
+                title: tr(context, 'accounts'),
+                description: tr(context, 'accounts_description'),
+              ),
               if (accounts.isEmpty)
                 Padding(
                   padding: const EdgeInsets.all(16),
@@ -1487,16 +1494,28 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
                     child: _InteractiveListRow(
                       leading: const Icon(Icons.account_circle_outlined),
                       title: Text(accounts[index]['name'].toString()),
-                      subtitle: Text(accounts[index]['type'].toString()),
-                      trailing: IconButton(
+                      subtitle: Text(_accountProviderLabel(accounts[index])),
+                      trailing: IconButton.filledTonal(
+                        style: IconButton.styleFrom(
+                          fixedSize: const Size(52, 40),
+                          shape: const StadiumBorder(),
+                          foregroundColor: Theme.of(context).colorScheme.error,
+                          backgroundColor: Theme.of(context)
+                              .colorScheme
+                              .errorContainer,
+                        ),
+                        tooltip: tr(context, 'remove_account'),
                         onPressed: () => _removeAccount(accounts[index]),
-                        icon: const Icon(Icons.delete_outline),
+                        icon: const Icon(Icons.delete_outline_rounded),
                       ),
                     ),
                   ),
                 ),
               const SizedBox(height: 16),
-              _SectionTitle(tr(context, 'authenticators')),
+              _DescribedSectionTitle(
+                title: tr(context, 'authenticators'),
+                description: tr(context, 'authenticators_description'),
+              ),
               if (authenticators.isEmpty)
                 Padding(
                   padding: const EdgeInsets.all(16),
@@ -2038,6 +2057,36 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.fromLTRB(4, 8, 4, 12),
     child: Text(text, style: Theme.of(context).textTheme.titleMedium),
+  );
+}
+
+class _DescribedSectionTitle extends StatelessWidget {
+  const _DescribedSectionTitle({
+    required this.title,
+    required this.description,
+  });
+
+  final String title;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionTitle(title),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+          child: Text(
+            description,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ],
+    ),
   );
 }
 

@@ -377,12 +377,16 @@ class _DhizukuShellState extends State<DhizukuShell> {
   }
 
   void _selectPage(int index) {
-    if (index == _selected) return;
-    setState(() => _selected = index);
-    _pageController.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 360),
-      curve: Curves.easeInOutCubic,
+    if (index < 0 || index >= 4) return;
+    if (_selected != index) setState(() => _selected = index);
+    if (!_pageController.hasClients) return;
+    if (_pageController.page?.round() == index) return;
+    unawaited(
+      _pageController.animateToPage(
+        index,
+        duration: const Duration(milliseconds: 360),
+        curve: Curves.easeInOutCubic,
+      ),
     );
   }
 
@@ -494,6 +498,11 @@ class _DhizukuShellState extends State<DhizukuShell> {
                         child: PageView(
                           controller: _pageController,
                           physics: const NeverScrollableScrollPhysics(),
+                          onPageChanged: (index) {
+                            if (_selected != index) {
+                              setState(() => _selected = index);
+                            }
+                          },
                           children: [
                             for (var index = 0; index < pages.length; index++)
                               _RetainedTab(
