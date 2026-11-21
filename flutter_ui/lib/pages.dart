@@ -763,47 +763,196 @@ class _UserManagementPageState extends State<UserManagementPage> {
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator.adaptive());
           }
+          final users = snapshot.data!;
           return RefreshIndicator(
             onRefresh: () async => _reload(),
-            child: ListView.builder(
-              padding: const EdgeInsets.all(12),
-              itemCount: snapshot.data!.length,
-              itemBuilder: (context, index) {
-                final user = snapshot.data![index];
-                return _AnimatedEntry(
-                  key: ValueKey(user['id']),
-                  index: index,
-                  child: Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: _InteractiveListRow(
-                      leading: const CircleAvatar(
-                        child: Icon(Icons.person_outline),
-                      ),
-                      title: Text(user['name'].toString()),
-                      subtitle: Text('ID ${user['id']}'),
-                      onPressed: () => Navigator.of(context).push(
-                        dhizukuPageRoute<void>(
-                          (_) => AccountManagementPage(user: user),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 760),
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                  children: [
+                    _AnimatedEntry(
+                      index: 0,
+                      child: Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(18),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 48,
+                                height: 48,
+                                decoration: ShapeDecoration(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .primaryContainer,
+                                  shape: prism.AppShape.lg,
+                                ),
+                                child: Icon(
+                                  Icons.people_alt_outlined,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onPrimaryContainer,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      tr(context, 'users_title'),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      tr(context, 'users_description'),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onSurfaceVariant,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: ShapeDecoration(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .secondaryContainer,
+                                  shape: prism.AppShape.full,
+                                ),
+                                child: Text(
+                                  tr(context, 'user_count').replaceAll(
+                                    '{count}',
+                                    users.length.toString(),
+                                  ),
+                                  style: Theme.of(context).textTheme.labelMedium
+                                      ?.copyWith(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSecondaryContainer,
+                                      ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      trailing: user['current'] == true
-                          ? Text(
-                              tr(context, 'current_user'),
-                              style: Theme.of(context).textTheme.labelMedium,
-                            )
-                          : IconButton(
-                              tooltip: tr(context, 'remove'),
-                              onPressed: () => _remove(user),
-                              icon: const Icon(Icons.delete_outline),
-                            ),
                     ),
-                  ),
-                );
-              },
+                    const SizedBox(height: 20),
+                    _SectionTitle(tr(context, 'users_list')),
+                    if (users.isEmpty)
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Center(child: Text(tr(context, 'no_users'))),
+                        ),
+                      ),
+                    for (var index = 0; index < users.length; index++)
+                      _userCard(context, users[index], index),
+                  ],
+                ),
+              ),
             ),
           );
         },
       );
+
+  Widget _userCard(BuildContext context, Map<String, dynamic> user, int index) {
+    final current = user['current'] == true;
+    final id = user['id'] as int;
+    return _AnimatedEntry(
+      key: ValueKey(id),
+      index: index + 1,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Card(
+          child: _InteractiveListRow(
+            leading: CircleAvatar(
+              backgroundColor: current
+                  ? Theme.of(context).colorScheme.primaryContainer
+                  : Theme.of(context).colorScheme.surfaceContainerHighest,
+              foregroundColor: current
+                  ? Theme.of(context).colorScheme.onPrimaryContainer
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
+              child: const Icon(Icons.person_outline_rounded),
+            ),
+            title: Text(user['name'].toString()),
+            subtitle: Text(
+              tr(context, 'user_id').replaceAll('{id}', id.toString()),
+            ),
+            onPressed: () => Navigator.of(context).push(
+              dhizukuPageRoute<void>((_) => AccountManagementPage(user: user)),
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (current)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 5,
+                    ),
+                    decoration: ShapeDecoration(
+                      color: Theme.of(context).colorScheme.secondaryContainer,
+                      shape: prism.AppShape.full,
+                    ),
+                    child: Text(
+                      tr(context, 'current_user'),
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSecondaryContainer,
+                      ),
+                    ),
+                  ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                if (!current)
+                  PopupMenuButton<String>(
+                    tooltip: tr(context, 'more_options'),
+                    onSelected: (value) {
+                      if (value == 'remove') _remove(user);
+                    },
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: 'remove',
+                        child: Row(
+                          children: [
+                            const Icon(Icons.delete_outline_rounded),
+                            const SizedBox(width: 12),
+                            Text(tr(context, 'remove_user_action')),
+                          ],
+                        ),
+                      ),
+                    ],
+                    child: const Padding(
+                      padding: EdgeInsets.all(10),
+                      child: Icon(Icons.more_vert_rounded),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class SettingsPage extends StatelessWidget {
@@ -830,10 +979,21 @@ class SettingsPage extends StatelessWidget {
   Widget build(BuildContext context) => ListView(
     padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
     children: [
-      _SectionTitle(tr(context, 'appearance_group')),
       _AnimatedEntry(
         index: 0,
-        child: _AppearanceSettingsCard(appearance: appearance),
+        child: Card(
+          child: _InteractiveListRow(
+            leading: const Icon(Icons.palette_outlined),
+            title: Text(tr(context, 'appearance_group')),
+            subtitle: Text(tr(context, 'appearance_summary')),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onPressed: () => Navigator.of(context).push(
+              dhizukuPageRoute<void>(
+                (_) => AppearanceSettingsPage(appearance: appearance),
+              ),
+            ),
+          ),
+        ),
       ),
       const SizedBox(height: 24),
       _SectionTitle(tr(context, 'preferences_group')),
@@ -920,6 +1080,31 @@ class SettingsPage extends StatelessWidget {
         ),
       ),
     ],
+  );
+}
+
+class AppearanceSettingsPage extends StatelessWidget {
+  const AppearanceSettingsPage({required this.appearance, super.key});
+
+  final AppearanceSettings appearance;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: Text(tr(context, 'appearance_group'))),
+    body: Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 720),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+          children: [
+            _AnimatedEntry(
+              index: 0,
+              child: _AppearanceSettingsCard(appearance: appearance),
+            ),
+          ],
+        ),
+      ),
+    ),
   );
 }
 
