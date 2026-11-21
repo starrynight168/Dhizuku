@@ -37,6 +37,7 @@ import org.koin.core.component.inject
 
 class DhizukuFlutterBridge(private val activity: ComponentActivity) :
     MethodChannel.MethodCallHandler, KoinComponent {
+    private var channel: MethodChannel? = null
     private val appRepo by inject<AppRepo>()
     private val settingsRepo by inject<SettingsRepo>()
     private val userService by inject<UserService>()
@@ -45,7 +46,13 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
     }
 
     fun attach(engine: FlutterEngine) {
-        MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler(this)
+        channel = MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL).also {
+            it.setMethodCallHandler(this)
+        }
+    }
+
+    fun notifyPermissionRequest(data: Map<String, Any?>) {
+        channel?.invokeMethod("permissionRequestChanged", data["request"])
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
@@ -283,9 +290,12 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
     private fun deactivateOwner(result: MethodChannel.Result) {
         runCatching {
             val manager = activity.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-            runCatching { manager.clearProfileOwner(DhizukuState.admin) }
-            runCatching { manager.clearDeviceOwnerApp(activity.packageName) }
+            val state = DhizukuState.state
+            check(state.isOwner) { "No active owner to remove" }
+            if (state.isProfileOwner) manager.clearProfileOwner(DhizukuState.admin)
+            if (state.isDeviceOwner) manager.clearDeviceOwnerApp(activity.packageName)
             DhizukuState.sync(activity)
+            check(!DhizukuState.state.isOwner) { "Owner removal did not complete" }
         }.onSuccess { result.success(null) }
             .onFailure { result.error("deactivation_failed", it.message ?: it.javaClass.simpleName, null) }
     }
@@ -326,20 +336,6 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
         DhizukuState.sync(activity)
     }
 
-    private fun iconBytes(drawable: android.graphics.drawable.Drawable): ByteArray? = runCatching {
-        val bitmap = Bitmap.createBitmap(96, 96, Bitmap.Config.ARGB_8888)
-        try {
-            drawable.setBounds(0, 0, bitmap.width, bitmap.height)
-            drawable.draw(Canvas(bitmap))
-            ByteArrayOutputStream().use { output ->
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
-                output.toByteArray()
-            }
-        } finally {
-            bitmap.recycle()
-        }
-    }.getOrNull()
-
     private fun launch(result: MethodChannel.Result, block: suspend () -> Any?) {
         activity.lifecycleScope.launch {
             runCatching { block() }
@@ -352,3 +348,17 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
         const val CHANNEL = "com.rosan.dhizuku/bridge"
     }
 }
+
+internal fun iconBytes(drawable: android.graphics.drawable.Drawable): ByteArray? = runCatching {
+    val bitmap = Bitmap.createBitmap(96, 96, Bitmap.Config.ARGB_8888)
+    try {
+        drawable.setBounds(0, 0, bitmap.width, bitmap.height)
+        drawable.draw(Canvas(bitmap))
+        ByteArrayOutputStream().use { output ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
+            output.toByteArray()
+        }
+    } finally {
+        bitmap.recycle()
+    }
+}.getOrNull()

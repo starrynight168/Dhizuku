@@ -36,10 +36,12 @@ class RequestPermissionActivity : FlutterFragmentActivity(), KoinComponent {
     private var allowApi = false
     private var responseGiven = false
     private var persisted = false
+    private var requestGeneration = 0L
+    private var flutterBridge: DhizukuFlutterBridge? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        DhizukuFlutterBridge(this).attach(flutterEngine)
+        flutterBridge = DhizukuFlutterBridge(this).also { it.attach(flutterEngine) }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,29 +51,27 @@ class RequestPermissionActivity : FlutterFragmentActivity(), KoinComponent {
             respondPermission(false)
             return
         }
-        lifecycleScope.launch {
-            val decision = withContext(Dispatchers.IO) {
-                if (!settingsRepo.isDhizukuEnabled) false
-                else {
-                    val entity = appRepo.findByUID(uid)
-                    when {
-                        settingsRepo.isWhitelistMode && (entity == null || !entity.allowApi) -> false
-                        entity?.blocked == true -> false
-                        entity?.allowApi == true && entity.signature == signature -> true
-                        else -> null
-                    }
-                }
-            }
-            if (decision != null) respondPermission(decision)
-        }
+        evaluateRequest()
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        if (!responseGiven) resolvePermission(false, closeActivity = false)
         responseGiven = false
         persisted = false
-        if (!registerAppEntity(intent)) respondPermission(false)
+        requestGeneration++
+        if (!registerAppEntity(intent)) {
+            uid = UID_ERR
+            signature = ""
+            requestPackageName = ""
+            appLabel = ""
+            listener = null
+            respondPermission(false)
+            return
+        }
+        flutterBridge?.notifyPermissionRequest(permissionInitialData())
+        evaluateRequest()
     }
 
     override fun onPause() {
@@ -79,21 +79,22 @@ class RequestPermissionActivity : FlutterFragmentActivity(), KoinComponent {
         respondPermission(false)
     }
 
-    fun permissionInitialData(): Map<String, Any> = mapOf(
+    fun permissionInitialData(): Map<String, Any?> = mapOf(
         "screen" to "permission",
         "request" to mapOf(
             "uid" to uid,
             "packageName" to requestPackageName,
             "label" to appLabel,
+            "icon" to runCatching {
+                iconBytes(packageManager.getApplicationIcon(requestPackageName))
+            }.getOrNull(),
+            "requestId" to requestGeneration,
             "seconds" to AUTO_DENY_SECONDS
         )
     )
 
     fun respondPermission(allow: Boolean) {
-        if (responseGiven) return
-        responseGiven = true
-        allowApi = allow
-        finish()
+        resolvePermission(allow, closeActivity = true)
     }
 
     override fun finish() {
@@ -101,22 +102,60 @@ class RequestPermissionActivity : FlutterFragmentActivity(), KoinComponent {
             responseGiven = true
             allowApi = false
         }
+        persistResponse()
         super.finish()
+    }
+
+    private fun resolvePermission(allow: Boolean, closeActivity: Boolean) {
+        if (responseGiven) return
+        responseGiven = true
+        allowApi = allow
+        persistResponse()
+        if (closeActivity) super.finish()
+    }
+
+    private fun persistResponse() {
         if (persisted) return
         persisted = true
+        val requestUid = uid
+        val requestListener = listener
+        val requestAllowed = allowApi
         CoroutineScope(Dispatchers.IO).launch {
-            val result = if (allowApi) PackageManager.PERMISSION_GRANTED else PackageManager.PERMISSION_DENIED
+            val result = if (requestAllowed) PackageManager.PERMISSION_GRANTED else PackageManager.PERMISSION_DENIED
             try {
-                if (uid != UID_ERR) {
-                    val actualSignature = packageManager.getPackageInfoForUid(uid)?.signature
+                if (requestUid != UID_ERR) {
+                    val actualSignature = packageManager.getPackageInfoForUid(requestUid)?.signature
                     if (actualSignature != null) {
-                        val entity = appRepo.findByUID(uid)
-                        if (entity == null) appRepo.insert(AppEntity(uid = uid, signature = actualSignature, allowApi = allowApi))
-                        else appRepo.update(entity.copy(signature = actualSignature, allowApi = allowApi))
+                        val entity = appRepo.findByUID(requestUid)
+                        if (entity == null) appRepo.insert(AppEntity(uid = requestUid, signature = actualSignature, allowApi = requestAllowed))
+                        else appRepo.update(entity.copy(signature = actualSignature, allowApi = requestAllowed))
                     }
                 }
             } finally {
-                runCatching { listener?.onRequestPermission(result) }
+                runCatching { requestListener?.onRequestPermission(result) }
+            }
+        }
+    }
+
+    private fun evaluateRequest() {
+        val generation = requestGeneration
+        val requestUid = uid
+        val requestSignature = signature
+        lifecycleScope.launch {
+            val decision = withContext(Dispatchers.IO) {
+                if (!settingsRepo.isDhizukuEnabled) false
+                else {
+                    val entity = appRepo.findByUID(requestUid)
+                    when {
+                        settingsRepo.isWhitelistMode && (entity == null || !entity.allowApi) -> false
+                        entity?.blocked == true -> false
+                        entity?.allowApi == true && entity.signature == requestSignature -> true
+                        else -> null
+                    }
+                }
+            }
+            if (generation == requestGeneration && !responseGiven && decision != null) {
+                respondPermission(decision)
             }
         }
     }

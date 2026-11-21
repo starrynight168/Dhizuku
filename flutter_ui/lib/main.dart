@@ -94,6 +94,21 @@ class _BootstrapPageState extends State<BootstrapPage> {
   void initState() {
     super.initState();
     _initial = DhizukuApi.getInitialData();
+    DhizukuApi.setNativeCallHandler((call) async {
+      if (call.method != 'permissionRequestChanged' || !mounted) return;
+      setState(() {
+        _initial = Future.value({
+          'screen': 'permission',
+          'request': Map<String, dynamic>.from(call.arguments as Map),
+        });
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    DhizukuApi.setNativeCallHandler(null);
+    super.dispose();
   }
 
   @override
@@ -116,6 +131,9 @@ class _BootstrapPageState extends State<BootstrapPage> {
         final data = snapshot.data!;
         if (data['screen'] == 'permission') {
           return PermissionRequestPage(
+            key: ValueKey(
+              (data['request'] as Map<String, dynamic>?)?['requestId'],
+            ),
             data: data['request'] as Map<String, dynamic>? ?? const {},
           );
         }

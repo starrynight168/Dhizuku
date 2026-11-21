@@ -441,20 +441,34 @@ class _InteractiveListRow extends StatelessWidget {
   final VoidCallback? onPressed;
 
   @override
-  Widget build(BuildContext context) => prism.PressSurface(
-    fill: Colors.transparent,
-    shape: prism.AppShape.xl,
-    onPressed: onPressed,
-    childFills: true,
-    child: prism.ListRow(
+  Widget build(BuildContext context) {
+    Widget row({Widget? rowTrailing}) => prism.ListRow(
       leading: leading,
       title: title,
       subtitle: subtitle,
-      trailing: trailing,
+      trailing: rowTrailing,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       minHeight: subtitle == null ? 64 : 72,
-    ),
-  );
+    );
+
+    Widget pressSurface({Widget? rowTrailing}) => prism.PressSurface(
+      fill: Colors.transparent,
+      shape: prism.AppShape.xl,
+      onPressed: onPressed,
+      childFills: true,
+      child: row(rowTrailing: rowTrailing),
+    );
+
+    if (onPressed != null && trailing != null) {
+      return Row(
+        children: [
+          Expanded(child: pressSurface()),
+          trailing!,
+        ],
+      );
+    }
+    return pressSurface(rowTrailing: trailing);
+  }
 }
 
 class _AnimatedSwitchRow extends StatelessWidget {
@@ -475,41 +489,48 @@ class _AnimatedSwitchRow extends StatelessWidget {
   final ValueChanged<bool> onChanged;
 
   @override
-  Widget build(BuildContext context) => prism.PressSurface(
-    fill: Colors.transparent,
-    shape: prism.AppShape.xl,
-    onPressed: enabled ? () => onChanged(!value) : null,
-    childFills: true,
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(minHeight: subtitle == null ? 64 : 76),
-        child: Row(
-          children: [
-            if (leading != null) ...[leading!, const SizedBox(width: 16)],
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    child: ConstrainedBox(
+      constraints: BoxConstraints(minHeight: subtitle == null ? 64 : 76),
+      child: Row(
+        children: [
+          Expanded(
+            child: prism.PressSurface(
+              fill: Colors.transparent,
+              shape: prism.AppShape.xl,
+              onPressed: enabled ? () => onChanged(!value) : null,
+              childFills: true,
+              child: Row(
                 children: [
-                  Text(title),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 3),
-                    Text(
-                      subtitle!,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: prism.Theme.of(context)
-                            .colorScheme
-                            .onSurfaceVariant,
-                      ),
+                  if (leading != null) ...[leading!, const SizedBox(width: 16)],
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(title),
+                        if (subtitle != null) ...[
+                          const SizedBox(height: 3),
+                          Text(
+                            subtitle!,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: prism.Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                ),
+                          ),
+                        ],
+                      ],
                     ),
-                  ],
+                  ),
                 ],
               ),
             ),
-            Switch(value: value, onChanged: enabled ? onChanged : null),
-          ],
-        ),
+          ),
+          Switch(value: value, onChanged: enabled ? onChanged : null),
+        ],
       ),
     ),
   );
@@ -659,6 +680,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
   void _reload() => setState(() => _users = DhizukuApi.getUsers());
 
   Future<void> _remove(Map<String, dynamic> user) async {
+    final failedMessage = tr(context, 'operation_failed');
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -680,7 +702,8 @@ class _UserManagementPageState extends State<UserManagementPage> {
     );
     if (confirm != true) return;
     try {
-      await DhizukuApi.removeUser(user['id'] as int);
+      final removed = await DhizukuApi.removeUser(user['id'] as int);
+      if (!removed) throw StateError(failedMessage);
       _reload();
     } catch (error) {
       widget.onError(error);
@@ -747,10 +770,12 @@ class SettingsPage extends StatelessWidget {
   final Map<String, dynamic> settings;
   final ValueChanged<Map<String, dynamic>> onChanged;
 
-  Future<void> _toggle(String key, bool value) async {
+  Future<void> _toggle(BuildContext context, String key, bool value) async {
     try {
       onChanged(await DhizukuApi.setSetting(key, value));
-    } catch (_) {}
+    } catch (error) {
+      if (context.mounted) _showActionError(context, error);
+    }
   }
 
   @override
@@ -764,20 +789,21 @@ class SettingsPage extends StatelessWidget {
             _AnimatedSwitchRow(
               title: tr(context, 'dhizuku_enabled'),
               value: settings['dhizukuEnabled'] == true,
-              onChanged: (value) => _toggle('dhizukuEnabled', value),
+              onChanged: (value) => _toggle(context, 'dhizukuEnabled', value),
             ),
             const Divider(indent: 16, endIndent: 16),
             _AnimatedSwitchRow(
               title: tr(context, 'whitelist'),
               subtitle: tr(context, 'api_access'),
               value: settings['whitelistMode'] == true,
-              onChanged: (value) => _toggle('whitelistMode', value),
+              onChanged: (value) => _toggle(context, 'whitelistMode', value),
             ),
             const Divider(indent: 16, endIndent: 16),
             _AnimatedSwitchRow(
               title: tr(context, 'hide_donate'),
               value: settings['donateButtonHidden'] == true,
-              onChanged: (value) => _toggle('donateButtonHidden', value),
+              onChanged: (value) =>
+                  _toggle(context, 'donateButtonHidden', value),
             ),
           ],
         ),
@@ -857,17 +883,24 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
     Map<String, dynamic> item,
     bool enabled,
   ) async {
-    await DhizukuApi.setAuthenticatorEnabled(
-      userId: widget.user['id'] as int,
-      packageName: item['packageName'].toString(),
-      label: item['label'].toString(),
-      type: item['type'].toString(),
-      enabled: enabled,
-    );
-    _reload();
+    final failedMessage = tr(context, 'operation_failed');
+    try {
+      final updated = await DhizukuApi.setAuthenticatorEnabled(
+        userId: widget.user['id'] as int,
+        packageName: item['packageName'].toString(),
+        label: item['label'].toString(),
+        type: item['type'].toString(),
+        enabled: enabled,
+      );
+      if (!updated) throw StateError(failedMessage);
+      _reload();
+    } catch (error) {
+      if (mounted) _showActionError(context, error);
+    }
   }
 
   Future<void> _removeAccount(Map<String, dynamic> account) async {
+    final failedMessage = tr(context, 'operation_failed');
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -886,8 +919,13 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
       ),
     );
     if (confirm == true) {
-      await DhizukuApi.removeAccount(account);
-      _reload();
+      try {
+        final removed = await DhizukuApi.removeAccount(account);
+        if (!removed) throw StateError(failedMessage);
+        _reload();
+      } catch (error) {
+        if (mounted) _showActionError(context, error);
+      }
     }
   }
 
@@ -1285,10 +1323,23 @@ class _PermissionRequestPageState extends State<PermissionRequestPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.privacy_tip_outlined, size: 40),
+                    if (widget.data['icon'] is Uint8List)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.memory(
+                          widget.data['icon'] as Uint8List,
+                          width: 48,
+                          height: 48,
+                          errorBuilder: (_, _, _) =>
+                              const Icon(Icons.privacy_tip_outlined, size: 40),
+                        ),
+                      )
+                    else
+                      const Icon(Icons.privacy_tip_outlined, size: 40),
                     const SizedBox(height: 16),
                     Text(
-                      tr(context, 'permission_request'),
+                      '${widget.data['label'] ?? widget.data['packageName']} '
+                      '${tr(context, 'permission_request_suffix')}',
                       style: Theme.of(context).textTheme.titleLarge,
                       textAlign: TextAlign.center,
                     ),
@@ -1375,4 +1426,10 @@ class _LoadError extends StatelessWidget {
       ),
     ),
   );
+}
+
+void _showActionError(BuildContext context, Object error) {
+  ScaffoldMessenger.maybeOf(
+    context,
+  )?.showSnackBar(SnackBar(content: Text('${tr(context, 'error')}: $error')));
 }

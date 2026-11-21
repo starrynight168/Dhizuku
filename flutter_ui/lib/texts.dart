@@ -88,11 +88,16 @@ String tr(BuildContext context, String key) {
     'activation_cancelled': ['已取消激活。', 'Activation was cancelled.'],
     'finish': ['完成', 'Finish'],
     'permission_request': ['请求 Dhizuku API 权限', 'Dhizuku API access request'],
+    'permission_request_suffix': [
+      '请求访问 Dhizuku API',
+      'requests Dhizuku API access',
+    ],
     'auto_deny': ['秒后自动拒绝', 's until automatically denied'],
     'allow': ['允许访问', 'Allow access'],
     'deny': ['拒绝', 'Deny'],
     'request_timeout': ['请求已超时', 'The request timed out'],
     'error': ['操作失败', 'Action failed'],
+    'operation_failed': ['操作未成功', 'Operation did not complete'],
     'no_data': ['暂无数据', 'No data available'],
     'adb_command': ['连接 ADB 后运行以下命令：', 'Connect ADB and run:'],
     'activation_info': [

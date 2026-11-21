@@ -3,6 +3,10 @@ import 'package:flutter/services.dart';
 class DhizukuApi {
   static const _channel = MethodChannel('com.rosan.dhizuku/bridge');
 
+  static void setNativeCallHandler(
+    Future<dynamic> Function(MethodCall)? handler,
+  ) => _channel.setMethodCallHandler(handler);
+
   static Future<Map<String, dynamic>> getInitialData() async =>
       Map<String, dynamic>.from(await _channel.invokeMethod('getInitialData'));
 

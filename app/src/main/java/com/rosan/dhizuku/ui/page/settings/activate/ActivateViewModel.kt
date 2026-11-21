@@ -58,19 +58,7 @@ class ActivateViewModel : ViewModel(), KoinComponent {
     var state = ActivateViewState()
         private set
 
-    fun collect() {
-        collectData()
-    }
-
     private var collectDataJob: Job? = null
-
-    enum class OwnerType {
-        Device,
-        Profile
-    }
-
-    var ownerType: OwnerType? = null
-        private set
 
     fun collectData() {
         state = state.copy(loading = true)
@@ -119,7 +107,6 @@ class ActivateViewModel : ViewModel(), KoinComponent {
         mode: Mode,
         comp: ComponentName
     ) {
-        ownerType = OwnerType.Device
         state = state.copy(status = ActivateViewState.Status.Running)
         activateJob?.cancel()
         activateJob = viewModelScope.launch(Dispatchers.IO) {
@@ -141,7 +128,6 @@ class ActivateViewModel : ViewModel(), KoinComponent {
         mode: Mode,
         comp: ComponentName
     ) {
-        ownerType = OwnerType.Profile
         state = state.copy(status = ActivateViewState.Status.Running)
         activateJob?.cancel()
         activateJob = viewModelScope.launch(Dispatchers.IO) {
