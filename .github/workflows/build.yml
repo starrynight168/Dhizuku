@@ -18,6 +18,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.50.0'
+          cache: true
+          pub-cache: true
+
+      - name: Resolve Flutter dependencies
+        run: flutter pub get
+        working-directory: flutter_ui
+
       - name: Setup Java
         uses: actions/setup-java@v5
         with:
