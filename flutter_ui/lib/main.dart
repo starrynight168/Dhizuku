@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:prism_ui/prism_ui.dart' as prism;
 
 import 'api.dart';
+import 'appearance.dart';
 import 'glyphs.dart';
 import 'pages.dart';
 import 'texts.dart';
@@ -12,27 +15,89 @@ void main() {
   runApp(const DhizukuApp());
 }
 
-class DhizukuApp extends StatelessWidget {
+class DhizukuApp extends StatefulWidget {
   const DhizukuApp({super.key});
 
   @override
+  State<DhizukuApp> createState() => _DhizukuAppState();
+}
+
+class _DhizukuAppState extends State<DhizukuApp> {
+  final AppearanceSettings _appearance = AppearanceSettings();
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_appearance.load());
+  }
+
+  @override
+  void dispose() {
+    _appearance.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Dhizuku',
-      theme: _theme(Brightness.light),
-      darkTheme: _theme(Brightness.dark),
-      themeMode: ThemeMode.system,
-      localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      supportedLocales: const [Locale('en'), Locale('zh')],
-      home: const BootstrapPage(),
+    return AnimatedBuilder(
+      animation: _appearance,
+      builder: (context, _) => MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'Dhizuku',
+        theme: _theme(Brightness.light),
+        darkTheme: _theme(Brightness.dark),
+        themeMode: _appearance.themeMode,
+        themeAnimationDuration: const Duration(milliseconds: 420),
+        themeAnimationCurve: Curves.easeInOutCubic,
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        supportedLocales: const [Locale('en'), Locale('zh')],
+        home: BootstrapPage(appearance: _appearance),
+      ),
     );
   }
 
   ThemeData _theme(Brightness brightness) {
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xff007aff),
+    final prismScheme = prism.seededColorScheme(
+      seedColor: _appearance.activeSeedColor,
       brightness: brightness,
+      style: _colorStyle,
+    );
+    final colorScheme = ColorScheme(
+      brightness: brightness,
+      primary: prismScheme.primary,
+      onPrimary: prismScheme.onPrimary,
+      primaryContainer: prismScheme.primaryContainer,
+      onPrimaryContainer: prismScheme.onPrimaryContainer,
+      secondary: prismScheme.secondary,
+      onSecondary: prismScheme.onSecondary,
+      secondaryContainer: prismScheme.secondaryContainer,
+      onSecondaryContainer: prismScheme.onSecondaryContainer,
+      tertiary: prismScheme.tertiary,
+      onTertiary: prismScheme.onTertiary,
+      tertiaryContainer: prismScheme.tertiaryContainer,
+      onTertiaryContainer: prismScheme.onTertiaryContainer,
+      error: prismScheme.error,
+      onError: prismScheme.onError,
+      errorContainer: prismScheme.errorContainer,
+      onErrorContainer: prismScheme.onErrorContainer,
+      surface: prismScheme.surface,
+      onSurface: prismScheme.onSurface,
+      surfaceDim: prismScheme.surfaceDim,
+      surfaceBright: prismScheme.surfaceBright,
+      surfaceContainerLowest: prismScheme.surfaceContainerLowest,
+      surfaceContainerLow: prismScheme.surfaceContainerLow,
+      surfaceContainer: prismScheme.surfaceContainer,
+      surfaceContainerHigh: prismScheme.surfaceContainerHigh,
+      surfaceContainerHighest: prismScheme.surfaceContainerHighest,
+      onSurfaceVariant: prismScheme.onSurfaceVariant,
+      outline: prismScheme.outline,
+      outlineVariant: prismScheme.outlineVariant,
+      shadow: prismScheme.shadow,
+      scrim: prismScheme.scrim,
+      inverseSurface: prismScheme.inverseSurface,
+      onInverseSurface: prismScheme.onInverseSurface,
+      inversePrimary: prismScheme.inversePrimary,
+      surfaceTint: prismScheme.surfaceTint,
     );
     return ThemeData(
       colorScheme: colorScheme,
@@ -78,10 +143,17 @@ class DhizukuApp extends StatelessWidget {
       ),
     );
   }
+
+  prism.ColorStyle get _colorStyle => prism.ColorStyle.values.firstWhere(
+    (style) => style.name == _appearance.colorStyle,
+    orElse: () => prism.ColorStyle.vivid,
+  );
 }
 
 class BootstrapPage extends StatefulWidget {
-  const BootstrapPage({super.key});
+  const BootstrapPage({required this.appearance, super.key});
+
+  final AppearanceSettings appearance;
 
   @override
   State<BootstrapPage> createState() => _BootstrapPageState();
@@ -137,15 +209,19 @@ class _BootstrapPageState extends State<BootstrapPage> {
             data: data['request'] as Map<String, dynamic>? ?? const {},
           );
         }
-        if (data['agreementAccepted'] != true) return const AgreementPage();
-        return DhizukuShell(initialData: data);
+        if (data['agreementAccepted'] != true) {
+          return AgreementPage(appearance: widget.appearance);
+        }
+        return DhizukuShell(initialData: data, appearance: widget.appearance);
       },
     );
   }
 }
 
 class AgreementPage extends StatefulWidget {
-  const AgreementPage({super.key});
+  const AgreementPage({required this.appearance, super.key});
+
+  final AppearanceSettings appearance;
 
   @override
   State<AgreementPage> createState() => _AgreementPageState();
@@ -159,7 +235,9 @@ class _AgreementPageState extends State<AgreementPage> {
     await DhizukuApi.acceptAgreement();
     if (mounted) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(builder: (_) => const _AcceptedShell()),
+        dhizukuPageRoute<void>(
+          (_) => _AcceptedShell(appearance: widget.appearance),
+        ),
       );
     }
   }
@@ -249,13 +327,15 @@ class _AgreementPageState extends State<AgreementPage> {
 }
 
 class _AcceptedShell extends StatelessWidget {
-  const _AcceptedShell();
+  const _AcceptedShell({required this.appearance});
+
+  final AppearanceSettings appearance;
 
   @override
   Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
     future: DhizukuApi.getInitialData(),
     builder: (context, snapshot) => snapshot.hasData
-        ? DhizukuShell(initialData: snapshot.data!)
+        ? DhizukuShell(initialData: snapshot.data!, appearance: appearance)
         : const Scaffold(
             body: Center(child: CircularProgressIndicator.adaptive()),
           ),
@@ -263,9 +343,14 @@ class _AcceptedShell extends StatelessWidget {
 }
 
 class DhizukuShell extends StatefulWidget {
-  const DhizukuShell({required this.initialData, super.key});
+  const DhizukuShell({
+    required this.initialData,
+    required this.appearance,
+    super.key,
+  });
 
   final Map<String, dynamic> initialData;
+  final AppearanceSettings appearance;
 
   @override
   State<DhizukuShell> createState() => _DhizukuShellState();
@@ -296,8 +381,8 @@ class _DhizukuShellState extends State<DhizukuShell> {
     setState(() => _selected = index);
     _pageController.animateToPage(
       index,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOutCubic,
+      duration: const Duration(milliseconds: 360),
+      curve: Curves.easeInOutCubic,
     );
   }
 
@@ -328,6 +413,7 @@ class _DhizukuShellState extends State<DhizukuShell> {
       UserManagementPage(onError: (error) => _showError(error)),
       SettingsPage(
         settings: _settings,
+        appearance: widget.appearance,
         onChanged: (value) => setState(() => _settings = value),
       ),
     ];
@@ -346,7 +432,10 @@ class _DhizukuShellState extends State<DhizukuShell> {
                 begin: const Offset(0, 0.14),
                 end: Offset.zero,
               ).animate(animation),
-              child: child,
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.97, end: 1).animate(animation),
+                child: child,
+              ),
             ),
           ),
           child: Text(title, key: ValueKey(_selected)),
@@ -387,9 +476,9 @@ class _DhizukuShellState extends State<DhizukuShell> {
             child: prism.Theme(
               data: prism.ThemeData(
                 colorScheme: prism.seededColorScheme(
-                  seedColor: const Color(0xff007aff),
+                  seedColor: widget.appearance.activeSeedColor,
                   brightness: Theme.of(context).brightness,
-                  style: prism.ColorStyle.vivid,
+                  style: _colorStyle,
                 ),
               ),
               child: prism.Surface(
@@ -448,6 +537,11 @@ class _DhizukuShellState extends State<DhizukuShell> {
       context,
     ).showSnackBar(SnackBar(content: Text('${tr(context, 'error')}: $error')));
   }
+
+  prism.ColorStyle get _colorStyle => prism.ColorStyle.values.firstWhere(
+    (style) => style.name == widget.appearance.colorStyle,
+    orElse: () => prism.ColorStyle.vivid,
+  );
 
   Future<void> _confirmShutdown() async {
     final confirm = await showDialog<bool>(

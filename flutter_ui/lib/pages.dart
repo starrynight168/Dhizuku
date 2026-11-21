@@ -6,8 +6,35 @@ import 'package:prism_ui/icons/icons.dart' show Glyph, GlyphIcon, Glyphs;
 import 'package:prism_ui/prism_ui.dart' as prism;
 
 import 'api.dart';
+import 'appearance.dart';
 import 'glyphs.dart';
 import 'texts.dart';
+
+Route<T> dhizukuPageRoute<T>(WidgetBuilder builder) => PageRouteBuilder<T>(
+  transitionDuration: const Duration(milliseconds: 360),
+  reverseTransitionDuration: const Duration(milliseconds: 280),
+  pageBuilder: (context, _, _) => builder(context),
+  transitionsBuilder: (context, animation, _, child) {
+    final motion = CurvedAnimation(
+      parent: animation,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+    return FadeTransition(
+      opacity: motion,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0.045, 0.02),
+          end: Offset.zero,
+        ).animate(motion),
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.975, end: 1).animate(motion),
+          child: child,
+        ),
+      ),
+    );
+  },
+);
 
 class HomePage extends StatelessWidget {
   const HomePage({
@@ -96,57 +123,70 @@ class HomePage extends StatelessWidget {
                 24,
               ),
               children: [
-                _DashboardCard(
-                  child: _StatusPanel(
-                    owner: owner,
-                    title: owner
-                        ? tr(context, profile ? 'profile_owner' : 'owner')
-                        : tr(context, 'not_activated'),
-                    description: owner
-                        ? tr(context, 'activated')
-                        : tr(context, 'activation_info'),
-                    onRefresh: onRefresh,
+                _AnimatedEntry(
+                  index: 0,
+                  child: _DashboardCard(
+                    child: _StatusPanel(
+                      owner: owner,
+                      title: owner
+                          ? tr(context, profile ? 'profile_owner' : 'owner')
+                          : tr(context, 'not_activated'),
+                      description: owner
+                          ? tr(context, 'activated')
+                          : tr(context, 'activation_info'),
+                      onRefresh: onRefresh,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
-                _DashboardCard(
-                  padding: EdgeInsets.zero,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
-                        child: Row(
-                          spacing: 8,
-                          children: [
-                            GlyphIcon(
-                              DhizukuGlyphs.dashboard,
-                              size: 18,
-                              color: prism.Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
-                            ),
-                            Expanded(
-                              child: Text(
-                                tr(context, 'quick_actions'),
-                                style: Theme.of(context).textTheme.titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.w600),
+                _AnimatedEntry(
+                  index: 1,
+                  child: _DashboardCard(
+                    padding: EdgeInsets.zero,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
+                          child: Row(
+                            spacing: 8,
+                            children: [
+                              GlyphIcon(
+                                DhizukuGlyphs.dashboard,
+                                size: 18,
+                                color: prism.Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
                               ),
+                              Expanded(
+                                child: Text(
+                                  tr(context, 'quick_actions'),
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        for (
+                          var index = 0;
+                          index < actions.length;
+                          index++
+                        ) ...[
+                          _AnimatedEntry(
+                            index: index + 2,
+                            child: _HomeActionCard(
+                              glyph: actions[index].glyph,
+                              title: actions[index].title,
+                              subtitle: actions[index].subtitle,
+                              onTap: actions[index].onTap,
                             ),
-                          ],
-                        ),
-                      ),
-                      for (var index = 0; index < actions.length; index++) ...[
-                        _HomeActionCard(
-                          glyph: actions[index].glyph,
-                          title: actions[index].title,
-                          subtitle: actions[index].subtitle,
-                          onTap: actions[index].onTap,
-                        ),
-                        if (index < actions.length - 1)
-                          const Divider(indent: 76, endIndent: 20),
+                          ),
+                          if (index < actions.length - 1)
+                            const Divider(indent: 76, endIndent: 20),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ],
@@ -179,9 +219,7 @@ class HomePage extends StatelessWidget {
 
   Future<void> _openActivation(BuildContext context, String mode) async {
     final activated = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (_) => ActivationPage(initialMode: mode),
-      ),
+      dhizukuPageRoute<bool>((_) => ActivationPage(initialMode: mode)),
     );
     if (activated == true) await onRefresh();
   }
@@ -598,61 +636,65 @@ class _AppManagementPageState extends State<AppManagementPage> {
                             final app = apps[index];
                             final blocked = app['blocked'] == true;
                             final icon = app['icon'];
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              child: Column(
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 4,
-                                    ),
-                                    child: prism.ListRow(
-                                      leading: icon is Uint8List
-                                          ? ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              child: Image.memory(
-                                                icon,
-                                                width: 48,
-                                                height: 48,
-                                                fit: BoxFit.cover,
-                                                errorBuilder: (_, _, _) =>
-                                                    const Icon(
-                                                      Icons.android,
-                                                      size: 40,
-                                                    ),
-                                              ),
-                                            )
-                                          : const CircleAvatar(
-                                              child: Icon(Icons.android),
-                                            ),
-                                      title: Text(app['label'].toString()),
-                                      subtitle: Text(
-                                        app['packageName'].toString(),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
+                            return _AnimatedEntry(
+                              key: ValueKey(app['packageName']),
+                              index: index,
+                              child: Card(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                child: Column(
+                                  children: [
+                                    Padding(
                                       padding: const EdgeInsets.symmetric(
-                                        horizontal: 20,
+                                        vertical: 4,
                                       ),
-                                      minHeight: 80,
+                                      child: prism.ListRow(
+                                        leading: icon is Uint8List
+                                            ? ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                                child: Image.memory(
+                                                  icon,
+                                                  width: 48,
+                                                  height: 48,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (_, _, _) =>
+                                                      const Icon(
+                                                        Icons.android,
+                                                        size: 40,
+                                                      ),
+                                                ),
+                                              )
+                                            : const CircleAvatar(
+                                                child: Icon(Icons.android),
+                                              ),
+                                        title: Text(app['label'].toString()),
+                                        subtitle: Text(
+                                          app['packageName'].toString(),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 20,
+                                        ),
+                                        minHeight: 80,
+                                      ),
                                     ),
-                                  ),
-                                  const Divider(indent: 20, endIndent: 20),
-                                  _AnimatedSwitchRow(
-                                    title: tr(context, 'api_access'),
-                                    value: app['enabled'] == true && !blocked,
-                                    enabled: !blocked,
-                                    onChanged: (value) =>
-                                        _set(app, 'enabled', value),
-                                  ),
-                                  _AnimatedSwitchRow(
-                                    title: tr(context, 'blocked'),
-                                    value: blocked,
-                                    onChanged: (value) =>
-                                        _set(app, 'blocked', value),
-                                  ),
-                                ],
+                                    const Divider(indent: 20, endIndent: 20),
+                                    _AnimatedSwitchRow(
+                                      title: tr(context, 'api_access'),
+                                      value: app['enabled'] == true && !blocked,
+                                      enabled: !blocked,
+                                      onChanged: (value) =>
+                                          _set(app, 'enabled', value),
+                                    ),
+                                    _AnimatedSwitchRow(
+                                      title: tr(context, 'blocked'),
+                                      value: blocked,
+                                      onChanged: (value) =>
+                                          _set(app, 'blocked', value),
+                                    ),
+                                  ],
+                                ),
                               ),
                             );
                           },
@@ -728,29 +770,33 @@ class _UserManagementPageState extends State<UserManagementPage> {
               itemCount: snapshot.data!.length,
               itemBuilder: (context, index) {
                 final user = snapshot.data![index];
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: _InteractiveListRow(
-                    leading: const CircleAvatar(
-                      child: Icon(Icons.person_outline),
-                    ),
-                    title: Text(user['name'].toString()),
-                    subtitle: Text('ID ${user['id']}'),
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => AccountManagementPage(user: user),
+                return _AnimatedEntry(
+                  key: ValueKey(user['id']),
+                  index: index,
+                  child: Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: _InteractiveListRow(
+                      leading: const CircleAvatar(
+                        child: Icon(Icons.person_outline),
                       ),
+                      title: Text(user['name'].toString()),
+                      subtitle: Text('ID ${user['id']}'),
+                      onPressed: () => Navigator.of(context).push(
+                        dhizukuPageRoute<void>(
+                          (_) => AccountManagementPage(user: user),
+                        ),
+                      ),
+                      trailing: user['current'] == true
+                          ? Text(
+                              tr(context, 'current_user'),
+                              style: Theme.of(context).textTheme.labelMedium,
+                            )
+                          : IconButton(
+                              tooltip: tr(context, 'remove'),
+                              onPressed: () => _remove(user),
+                              icon: const Icon(Icons.delete_outline),
+                            ),
                     ),
-                    trailing: user['current'] == true
-                        ? Text(
-                            tr(context, 'current_user'),
-                            style: Theme.of(context).textTheme.labelMedium,
-                          )
-                        : IconButton(
-                            tooltip: tr(context, 'remove'),
-                            onPressed: () => _remove(user),
-                            icon: const Icon(Icons.delete_outline),
-                          ),
                   ),
                 );
               },
@@ -763,11 +809,13 @@ class _UserManagementPageState extends State<UserManagementPage> {
 class SettingsPage extends StatelessWidget {
   const SettingsPage({
     required this.settings,
+    required this.appearance,
     required this.onChanged,
     super.key,
   });
 
   final Map<String, dynamic> settings;
+  final AppearanceSettings appearance;
   final ValueChanged<Map<String, dynamic>> onChanged;
 
   Future<void> _toggle(BuildContext context, String key, bool value) async {
@@ -782,83 +830,372 @@ class SettingsPage extends StatelessWidget {
   Widget build(BuildContext context) => ListView(
     padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
     children: [
+      _SectionTitle(tr(context, 'appearance_group')),
+      _AnimatedEntry(
+        index: 0,
+        child: _AppearanceSettingsCard(appearance: appearance),
+      ),
+      const SizedBox(height: 24),
       _SectionTitle(tr(context, 'preferences_group')),
-      Card(
-        child: Column(
-          children: [
-            _AnimatedSwitchRow(
-              title: tr(context, 'dhizuku_enabled'),
-              value: settings['dhizukuEnabled'] == true,
-              onChanged: (value) => _toggle(context, 'dhizukuEnabled', value),
-            ),
-            const Divider(indent: 16, endIndent: 16),
-            _AnimatedSwitchRow(
-              title: tr(context, 'whitelist'),
-              subtitle: tr(context, 'api_access'),
-              value: settings['whitelistMode'] == true,
-              onChanged: (value) => _toggle(context, 'whitelistMode', value),
-            ),
-            const Divider(indent: 16, endIndent: 16),
-            _AnimatedSwitchRow(
-              title: tr(context, 'hide_donate'),
-              value: settings['donateButtonHidden'] == true,
-              onChanged: (value) =>
-                  _toggle(context, 'donateButtonHidden', value),
-            ),
-          ],
+      _AnimatedEntry(
+        index: 1,
+        child: Card(
+          child: Column(
+            children: [
+              _AnimatedSwitchRow(
+                title: tr(context, 'dhizuku_enabled'),
+                value: settings['dhizukuEnabled'] == true,
+                onChanged: (value) => _toggle(context, 'dhizukuEnabled', value),
+              ),
+              const Divider(indent: 16, endIndent: 16),
+              _AnimatedSwitchRow(
+                title: tr(context, 'whitelist'),
+                subtitle: tr(context, 'api_access'),
+                value: settings['whitelistMode'] == true,
+                onChanged: (value) => _toggle(context, 'whitelistMode', value),
+              ),
+              const Divider(indent: 16, endIndent: 16),
+              _AnimatedSwitchRow(
+                title: tr(context, 'hide_donate'),
+                value: settings['donateButtonHidden'] == true,
+                onChanged: (value) =>
+                    _toggle(context, 'donateButtonHidden', value),
+              ),
+            ],
+          ),
         ),
       ),
       const SizedBox(height: 24),
       _SectionTitle(tr(context, 'about_group')),
-      Card(
+      _AnimatedEntry(
+        index: 2,
+        child: Card(
+          child: Column(
+            children: [
+              _InteractiveListRow(
+                leading: const Icon(Icons.notifications_outlined),
+                title: Text(tr(context, 'notifications')),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onPressed: () =>
+                    const MethodChannel('com.rosan.dhizuku/bridge')
+                        .invokeMethod('requestNotificationPermission'),
+              ),
+              const Divider(indent: 16, endIndent: 16),
+              _InteractiveListRow(
+                leading: const Icon(Icons.battery_saver_outlined),
+                title: Text(tr(context, 'battery_optimization')),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onPressed: () =>
+                    const MethodChannel('com.rosan.dhizuku/bridge')
+                        .invokeMethod('requestIgnoreBatteryOptimization'),
+              ),
+              const Divider(indent: 16, endIndent: 16),
+              _InteractiveListRow(
+                leading: const Icon(Icons.favorite_outline),
+                title: Text(tr(context, 'donate')),
+                trailing: const Icon(Icons.open_in_new_rounded),
+                onPressed: () =>
+                    DhizukuApi.openUrl(tr(context, 'donation_url')),
+              ),
+              const Divider(indent: 16, endIndent: 16),
+              _InteractiveListRow(
+                leading: const Icon(Icons.description_outlined),
+                title: Text(tr(context, 'terms')),
+                trailing: const Icon(Icons.open_in_new_rounded),
+                onPressed: () => DhizukuApi.openUrl(
+                  'https://iamr0s.github.io/Dhizuku/TERMS.html',
+                ),
+              ),
+              const Divider(indent: 16, endIndent: 16),
+              _InteractiveListRow(
+                leading: const Icon(Icons.privacy_tip_outlined),
+                title: Text(tr(context, 'privacy')),
+                trailing: const Icon(Icons.open_in_new_rounded),
+                onPressed: () => DhizukuApi.openUrl(
+                  'https://iamr0s.github.io/Dhizuku/PRIVACY.html',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+class _AppearanceSettingsCard extends StatelessWidget {
+  const _AppearanceSettingsCard({required this.appearance});
+
+  final AppearanceSettings appearance;
+
+  Future<void> _update(
+    BuildContext context,
+    Future<void> Function() change,
+  ) async {
+    try {
+      await change();
+    } catch (error) {
+      if (context.mounted) _showActionError(context, error);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final colorStyle = prism.ColorStyle.values.firstWhere(
+      (style) => style.name == appearance.colorStyle,
+      orElse: () => prism.ColorStyle.vivid,
+    );
+    final preview = prism.seededColorScheme(
+      seedColor: appearance.activeSeedColor,
+      brightness: colors.brightness,
+      style: colorStyle,
+    );
+    final colorOptions = <({String label, int color, bool system})>[
+      if (appearance.systemSeedColor case final systemColor?)
+        (label: 'theme_system', color: systemColor, system: true),
+      (label: 'theme_blue', color: 0xff007aff, system: false),
+      (label: 'theme_purple', color: 0xff6750a4, system: false),
+      (label: 'theme_teal', color: 0xff008c8c, system: false),
+      (label: 'theme_green', color: 0xff386a20, system: false),
+      (label: 'theme_orange', color: 0xffa05b00, system: false),
+      (label: 'theme_rose', color: 0xffb3265e, system: false),
+    ];
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _InteractiveListRow(
-              leading: const Icon(Icons.notifications_outlined),
-              title: Text(tr(context, 'notifications')),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onPressed: () =>
-                  const MethodChannel('com.rosan.dhizuku/bridge')
-                      .invokeMethod('requestNotificationPermission'),
-            ),
-            const Divider(indent: 16, endIndent: 16),
-            _InteractiveListRow(
-              leading: const Icon(Icons.battery_saver_outlined),
-              title: Text(tr(context, 'battery_optimization')),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onPressed: () =>
-                  const MethodChannel('com.rosan.dhizuku/bridge')
-                      .invokeMethod('requestIgnoreBatteryOptimization'),
-            ),
-            const Divider(indent: 16, endIndent: 16),
-            _InteractiveListRow(
-              leading: const Icon(Icons.favorite_outline),
-              title: Text(tr(context, 'donate')),
-              trailing: const Icon(Icons.open_in_new_rounded),
-              onPressed: () => DhizukuApi.openUrl(tr(context, 'donation_url')),
-            ),
-            const Divider(indent: 16, endIndent: 16),
-            _InteractiveListRow(
-              leading: const Icon(Icons.description_outlined),
-              title: Text(tr(context, 'terms')),
-              trailing: const Icon(Icons.open_in_new_rounded),
-              onPressed: () => DhizukuApi.openUrl(
-                'https://iamr0s.github.io/Dhizuku/TERMS.html',
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 320),
+              curve: Curves.easeOutCubic,
+              decoration: ShapeDecoration(
+                color: preview.primaryContainer,
+                shape: prism.AppShape.xl,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 320),
+                    width: 42,
+                    height: 42,
+                    decoration: ShapeDecoration(
+                      color: preview.primary,
+                      shape: prism.AppShape.lg,
+                    ),
+                    child: Icon(
+                      Icons.auto_awesome_rounded,
+                      color: preview.onPrimary,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          tr(context, 'theme_preview'),
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(color: preview.onPrimaryContainer),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          tr(context, 'theme_preview_subtitle'),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: preview.onPrimaryContainer),
+                        ),
+                      ],
+                    ),
+                  ),
+                  DecoratedBox(
+                    decoration: ShapeDecoration(
+                      color: preview.primary,
+                      shape: prism.AppShape.lg,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      child: Text(
+                        tr(context, 'theme_preview_button'),
+                        style: Theme.of(context).textTheme.labelLarge
+                            ?.copyWith(color: preview.onPrimary),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const Divider(indent: 16, endIndent: 16),
-            _InteractiveListRow(
-              leading: const Icon(Icons.privacy_tip_outlined),
-              title: Text(tr(context, 'privacy')),
-              trailing: const Icon(Icons.open_in_new_rounded),
-              onPressed: () => DhizukuApi.openUrl(
-                'https://iamr0s.github.io/Dhizuku/PRIVACY.html',
+            const SizedBox(height: 20),
+            _SectionTitle(tr(context, 'theme_mode')),
+            SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<ThemeMode>(
+                showSelectedIcon: false,
+                segments: [
+                  ButtonSegment(
+                    value: ThemeMode.system,
+                    icon: const Icon(Icons.brightness_auto_rounded),
+                    label: Text(tr(context, 'theme_system')),
+                  ),
+                  ButtonSegment(
+                    value: ThemeMode.light,
+                    icon: const Icon(Icons.light_mode_rounded),
+                    label: Text(tr(context, 'theme_light')),
+                  ),
+                  ButtonSegment(
+                    value: ThemeMode.dark,
+                    icon: const Icon(Icons.dark_mode_rounded),
+                    label: Text(tr(context, 'theme_dark')),
+                  ),
+                ],
+                selected: {appearance.themeMode},
+                onSelectionChanged: (value) => unawaited(
+                  _update(
+                    context,
+                    () => appearance.update(themeMode: value.first),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            _SectionTitle(tr(context, 'theme_color')),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final option in colorOptions)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _ThemeColorButton(
+                        label: tr(context, option.label),
+                        color: Color(option.color),
+                        selected: option.system
+                            ? appearance.useSystemColor
+                            : !appearance.useSystemColor &&
+                                  appearance.seedColor == option.color,
+                        icon: option.system ? Icons.auto_awesome_rounded : null,
+                        onPressed: () => unawaited(
+                          _update(
+                            context,
+                            () => appearance.update(
+                              useSystemColor: option.system,
+                              seedColor: option.color,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            _SectionTitle(tr(context, 'theme_color_style')),
+            SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<String>(
+                showSelectedIcon: false,
+                segments: [
+                  for (final style in prism.ColorStyle.values)
+                    ButtonSegment(
+                      value: style.name,
+                      label: Text(tr(context, 'style_${style.name}')),
+                    ),
+                ],
+                selected: {appearance.colorStyle},
+                onSelectionChanged: (value) => unawaited(
+                  _update(
+                    context,
+                    () => appearance.update(colorStyle: value.first),
+                  ),
+                ),
               ),
             ),
           ],
         ),
       ),
-    ],
+    );
+  }
+}
+
+class _ThemeColorButton extends StatelessWidget {
+  const _ThemeColorButton({
+    required this.label,
+    required this.color,
+    required this.selected,
+    required this.onPressed,
+    this.icon,
+  });
+
+  final String label;
+  final Color color;
+  final bool selected;
+  final VoidCallback onPressed;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: 62,
+    child: Column(
+      children: [
+        prism.PressSurface(
+          fill: selected
+              ? Theme.of(context).colorScheme.secondaryContainer
+              : Colors.transparent,
+          shape: prism.AppShape.xl,
+          onPressed: onPressed,
+          minimum: const BoxConstraints.tightFor(width: 58, height: 54),
+          child: Center(
+            child: AnimatedScale(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutBack,
+              scale: selected ? 1 : 0.88,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 240),
+                width: 30,
+                height: 30,
+                decoration: ShapeDecoration(
+                  color: color,
+                  shape: prism.AppShape.circle.copyWith(
+                    side: BorderSide(
+                      color: selected
+                          ? Theme.of(context).colorScheme.onSurface
+                          : Colors.transparent,
+                      width: 2,
+                    ),
+                  ),
+                ),
+                child: icon == null
+                    ? null
+                    : Icon(
+                        icon,
+                        size: 16,
+                        color:
+                            ThemeData.estimateBrightnessForColor(color) ==
+                                Brightness.dark
+                            ? Colors.white
+                            : Colors.black,
+                      ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        AnimatedDefaultTextStyle(
+          duration: const Duration(milliseconds: 180),
+          style: Theme.of(context).textTheme.labelSmall!.copyWith(
+            color: selected
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).colorScheme.onSurfaceVariant,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+          ),
+          child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+        ),
+      ],
+    ),
   );
 }
 
@@ -956,16 +1293,20 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
                   padding: const EdgeInsets.all(16),
                   child: Text(tr(context, 'no_data')),
                 ),
-              for (final account in accounts)
-                Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: _InteractiveListRow(
-                    leading: const Icon(Icons.account_circle_outlined),
-                    title: Text(account['name'].toString()),
-                    subtitle: Text(account['type'].toString()),
-                    trailing: IconButton(
-                      onPressed: () => _removeAccount(account),
-                      icon: const Icon(Icons.delete_outline),
+              for (var index = 0; index < accounts.length; index++)
+                _AnimatedEntry(
+                  key: ValueKey('account-${accounts[index]['name']}-$index'),
+                  index: index,
+                  child: Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: _InteractiveListRow(
+                      leading: const Icon(Icons.account_circle_outlined),
+                      title: Text(accounts[index]['name'].toString()),
+                      subtitle: Text(accounts[index]['type'].toString()),
+                      trailing: IconButton(
+                        onPressed: () => _removeAccount(accounts[index]),
+                        icon: const Icon(Icons.delete_outline),
+                      ),
                     ),
                   ),
                 ),
@@ -976,15 +1317,22 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
                   padding: const EdgeInsets.all(16),
                   child: Text(tr(context, 'no_data')),
                 ),
-              for (final item in authenticators)
-                Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: _AnimatedSwitchRow(
-                    leading: const Icon(Icons.extension_outlined),
-                    title: item['label'].toString(),
-                    subtitle: item['packageName'].toString(),
-                    value: item['frozen'] != true,
-                    onChanged: (enabled) => _toggleAuthenticator(item, enabled),
+              for (var index = 0; index < authenticators.length; index++)
+                _AnimatedEntry(
+                  key: ValueKey(
+                    'authenticator-${authenticators[index]['packageName']}',
+                  ),
+                  index: accounts.length + index,
+                  child: Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: _AnimatedSwitchRow(
+                      leading: const Icon(Icons.extension_outlined),
+                      title: authenticators[index]['label'].toString(),
+                      subtitle: authenticators[index]['packageName'].toString(),
+                      value: authenticators[index]['frozen'] != true,
+                      onChanged: (enabled) =>
+                          _toggleAuthenticator(authenticators[index], enabled),
+                    ),
                   ),
                 ),
             ],
@@ -1194,74 +1542,108 @@ class _ActivationPageState extends State<ActivationPage> {
         return ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            Text(
-              tr(context, 'activation_info'),
-              style: Theme.of(context).textTheme.bodyLarge,
+            _AnimatedEntry(
+              index: 0,
+              child: Text(
+                tr(context, 'activation_info'),
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
             ),
             const SizedBox(height: 20),
-            _SectionTitle(tr(context, 'admin')),
-            DropdownButtonFormField<String>(
-              initialValue: currentSelection,
-              decoration: const InputDecoration(border: OutlineInputBorder()),
-              items: [
-                for (final item in admins)
-                  DropdownMenuItem(
-                    value: '${item['packageName']}/${item['className']}',
-                    child: Text(
-                      item['label'].toString(),
-                      overflow: TextOverflow.ellipsis,
+            _AnimatedEntry(
+              index: 1,
+              child: Column(
+                children: [
+                  _SectionTitle(tr(context, 'admin')),
+                  DropdownButtonFormField<String>(
+                    initialValue: currentSelection,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
                     ),
+                    items: [
+                      for (final item in admins)
+                        DropdownMenuItem(
+                          value: '${item['packageName']}/${item['className']}',
+                          child: Text(
+                            item['label'].toString(),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                    onChanged: (value) => setState(() => _selected = value),
                   ),
-              ],
-              onChanged: (value) => setState(() => _selected = value),
+                ],
+              ),
             ),
             if (_mode == 'shizuku') ...[
               const SizedBox(height: 20),
-              _SectionTitle(tr(context, 'owner_type')),
-              SegmentedButton<String>(
-                segments: [
-                  ButtonSegment(
-                    value: 'device',
-                    label: Text(tr(context, 'device')),
-                  ),
-                  ButtonSegment(
-                    value: 'profile',
-                    label: Text(tr(context, 'profile')),
-                  ),
-                ],
-                selected: {_ownerType},
-                onSelectionChanged: (value) => _chooseOwnerType(value.first),
+              _AnimatedEntry(
+                index: 2,
+                child: Column(
+                  children: [
+                    _SectionTitle(tr(context, 'owner_type')),
+                    SegmentedButton<String>(
+                      segments: [
+                        ButtonSegment(
+                          value: 'device',
+                          label: Text(tr(context, 'device')),
+                        ),
+                        ButtonSegment(
+                          value: 'profile',
+                          label: Text(tr(context, 'profile')),
+                        ),
+                      ],
+                      selected: {_ownerType},
+                      onSelectionChanged: (value) =>
+                          _chooseOwnerType(value.first),
+                    ),
+                  ],
+                ),
               ),
             ],
             const SizedBox(height: 20),
-            _SectionTitle(tr(context, 'activation_mode')),
-            SegmentedButton<String>(
-              segments: [
-                ButtonSegment(
-                  value: 'dhizuku',
-                  label: Text(tr(context, 'dhizuku_mode')),
-                ),
-                ButtonSegment(
-                  value: 'shizuku',
-                  label: Text(tr(context, 'shizuku_mode')),
-                ),
-              ],
-              selected: {_mode},
-              onSelectionChanged: (value) => setState(() {
-                _mode = value.first;
-                if (_mode == 'dhizuku') _ownerType = 'device';
-              }),
+            _AnimatedEntry(
+              index: 3,
+              child: Column(
+                children: [
+                  _SectionTitle(tr(context, 'activation_mode')),
+                  SegmentedButton<String>(
+                    segments: [
+                      ButtonSegment(
+                        value: 'dhizuku',
+                        label: Text(tr(context, 'dhizuku_mode')),
+                      ),
+                      ButtonSegment(
+                        value: 'shizuku',
+                        label: Text(tr(context, 'shizuku_mode')),
+                      ),
+                    ],
+                    selected: {_mode},
+                    onSelectionChanged: (value) => setState(() {
+                      _mode = value.first;
+                      if (_mode == 'dhizuku') _ownerType = 'device';
+                    }),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 20),
-            FilledButton.icon(
-              onPressed: _busy ? null : () => _activate(admins),
-              icon: _busy
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.check),
-              label: Text(tr(context, 'activate')),
+            _AnimatedEntry(
+              index: 4,
+              child: FilledButton.icon(
+                onPressed: _busy ? null : () => _activate(admins),
+                icon: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 220),
+                  child: _busy
+                      ? const SizedBox.square(
+                          key: ValueKey('busy'),
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.check, key: ValueKey('ready')),
+                ),
+                label: Text(tr(context, 'activate')),
+              ),
             ),
           ],
         );
@@ -1317,71 +1699,93 @@ class _PermissionRequestPageState extends State<PermissionRequestPage> {
           constraints: const BoxConstraints(maxWidth: 460),
           child: Padding(
             padding: const EdgeInsets.all(24),
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (widget.data['icon'] is Uint8List)
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.memory(
-                          widget.data['icon'] as Uint8List,
-                          width: 48,
-                          height: 48,
-                          errorBuilder: (_, _, _) =>
-                              const Icon(Icons.privacy_tip_outlined, size: 40),
-                        ),
-                      )
-                    else
-                      const Icon(Icons.privacy_tip_outlined, size: 40),
-                    const SizedBox(height: 16),
-                    Text(
-                      '${widget.data['label'] ?? widget.data['packageName']} '
-                      '${tr(context, 'permission_request_suffix')}',
-                      style: Theme.of(context).textTheme.titleLarge,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      widget.data['label']?.toString() ??
-                          widget.data['packageName']?.toString() ??
-                          '',
-                      style: Theme.of(context).textTheme.bodyLarge,
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(
-                            value: _remaining / _duration,
-                            strokeWidth: 2,
+            child: _AnimatedEntry(
+              index: 0,
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (widget.data['icon'] is Uint8List)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.memory(
+                            widget.data['icon'] as Uint8List,
+                            width: 48,
+                            height: 48,
+                            errorBuilder: (_, _, _) => const Icon(
+                              Icons.privacy_tip_outlined,
+                              size: 40,
+                            ),
                           ),
+                        )
+                      else
+                        const Icon(Icons.privacy_tip_outlined, size: 40),
+                      const SizedBox(height: 16),
+                      Text(
+                        '${widget.data['label'] ?? widget.data['packageName']} '
+                        '${tr(context, 'permission_request_suffix')}',
+                        style: Theme.of(context).textTheme.titleLarge,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        widget.data['label']?.toString() ??
+                            widget.data['packageName']?.toString() ??
+                            '',
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(
+                              value: _remaining / _duration,
+                              strokeWidth: 2,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 220),
+                            transitionBuilder: (child, animation) =>
+                                FadeTransition(
+                                  opacity: animation,
+                                  child: SlideTransition(
+                                    position: Tween<Offset>(
+                                      begin: const Offset(0, 0.25),
+                                      end: Offset.zero,
+                                    ).animate(animation),
+                                    child: child,
+                                  ),
+                                ),
+                            child: Text(
+                              '$_remaining ${tr(context, 'auto_deny')}',
+                              key: ValueKey(_remaining),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          onPressed: _responded ? null : () => _respond(true),
+                          child: Text(tr(context, 'allow')),
                         ),
-                        const SizedBox(width: 10),
-                        Text('$_remaining ${tr(context, 'auto_deny')}'),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton(
-                        onPressed: _responded ? null : () => _respond(true),
-                        child: Text(tr(context, 'allow')),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.tonal(
-                        onPressed: _responded ? null : () => _respond(false),
-                        child: Text(tr(context, 'deny')),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.tonal(
+                          onPressed: _responded ? null : () => _respond(false),
+                          child: Text(tr(context, 'deny')),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1390,6 +1794,56 @@ class _PermissionRequestPageState extends State<PermissionRequestPage> {
       ),
     ),
   );
+}
+
+class _AnimatedEntry extends StatefulWidget {
+  const _AnimatedEntry({required this.index, required this.child, super.key});
+
+  final int index;
+  final Widget child;
+
+  @override
+  State<_AnimatedEntry> createState() => _AnimatedEntryState();
+}
+
+class _AnimatedEntryState extends State<_AnimatedEntry> {
+  Timer? _timer;
+  bool _visible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer(Duration(milliseconds: widget.index.clamp(0, 8) * 32), () {
+      if (mounted) setState(() => _visible = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) return widget.child;
+    return AnimatedOpacity(
+      opacity: _visible ? 1 : 0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+      child: AnimatedSlide(
+        offset: _visible ? Offset.zero : const Offset(0, 0.035),
+        duration: const Duration(milliseconds: 360),
+        curve: Curves.easeOutCubic,
+        child: AnimatedScale(
+          scale: _visible ? 1 : 0.985,
+          duration: const Duration(milliseconds: 360),
+          curve: Curves.easeOutCubic,
+          child: widget.child,
+        ),
+      ),
+    );
+  }
 }
 
 class _SectionTitle extends StatelessWidget {

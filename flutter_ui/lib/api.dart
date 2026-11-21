@@ -16,6 +16,23 @@ class DhizukuApi {
   static Future<Map<String, dynamic>> getSettings() async =>
       Map<String, dynamic>.from(await _channel.invokeMethod('getSettings'));
 
+  static Future<Map<String, dynamic>> getAppearance() async =>
+      Map<String, dynamic>.from(await _channel.invokeMethod('getAppearance'));
+
+  static Future<Map<String, dynamic>> setAppearance({
+    required String themeMode,
+    required bool useSystemColor,
+    required int seedColor,
+    required String colorStyle,
+  }) async => Map<String, dynamic>.from(
+    await _channel.invokeMethod('setAppearance', {
+      'themeMode': themeMode,
+      'useSystemColor': useSystemColor,
+      'seedColor': seedColor,
+      'colorStyle': colorStyle,
+    }),
+  );
+
   static Future<Map<String, dynamic>> setSetting(
     String key,
     bool enabled,

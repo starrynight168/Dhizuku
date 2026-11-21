@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.net.Uri
+import android.os.Build
 import android.os.Process
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.ViewModelProvider
@@ -76,6 +77,8 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
             }
             "getSettings" -> result.success(settings())
             "setSetting" -> setSetting(call, result)
+            "getAppearance" -> result.success(appearance())
+            "setAppearance" -> setAppearance(call, result)
             "getApps" -> launch(result) { apps() }
             "setAppPermission" -> launch(result) { setAppPermission(call) }
             "getUsers" -> launch(result) { users() }
@@ -128,6 +131,50 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
         "whitelistMode" to settingsRepo.isWhitelistMode,
         "donateButtonHidden" to settingsRepo.isDonateButtonHidden
     )
+
+    private fun appearance(): Map<String, Any?> {
+        val preferences = activity.getSharedPreferences("appearance", Context.MODE_PRIVATE)
+        return mapOf(
+            "themeMode" to preferences.getString("themeMode", "system"),
+            "useSystemColor" to preferences.getBoolean("useSystemColor", true),
+            "seedColor" to (preferences.getInt("seedColor", 0xff007aff.toInt()).toLong() and 0xffffffffL),
+            "systemSeedColor" to systemSeedColor(),
+            "colorStyle" to preferences.getString("colorStyle", "vivid")
+        )
+    }
+
+    private fun setAppearance(call: MethodCall, result: MethodChannel.Result) {
+        val themeMode = call.argument<String>("themeMode")
+        val colorStyle = call.argument<String>("colorStyle")
+        if (themeMode == null || themeMode !in setOf("system", "light", "dark") ||
+            colorStyle == null || colorStyle !in setOf("vivid", "tinted", "soft", "monochrome")
+        ) {
+            result.error("invalid_argument", "Invalid appearance settings", null)
+            return
+        }
+        val seedColor = call.argument<Number>("seedColor")?.toLong()
+            ?: return result.error("invalid_argument", "Missing seed color", null)
+        val useSystemColor = call.argument<Boolean>("useSystemColor")
+            ?: return result.error("invalid_argument", "Missing system color option", null)
+        activity.getSharedPreferences("appearance", Context.MODE_PRIVATE).edit()
+            .putString("themeMode", themeMode)
+            .putBoolean("useSystemColor", useSystemColor)
+            .putInt("seedColor", seedColor.toInt())
+            .putString("colorStyle", colorStyle)
+            .apply()
+        result.success(appearance())
+    }
+
+    private fun systemSeedColor(): Long? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return null
+        val resource = activity.resources.getIdentifier(
+            "system_accent1_500",
+            "color",
+            "android"
+        )
+        if (resource == 0) return null
+        return runCatching { activity.getColor(resource).toLong() and 0xffffffffL }.getOrNull()
+    }
 
     private fun setSetting(call: MethodCall, result: MethodChannel.Result) {
         val enabled = call.argument<Boolean>("enabled") ?: return result.error("invalid_argument", "Missing enabled", null)
