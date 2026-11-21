@@ -8,9 +8,6 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.content.pm.PermissionInfo
 import android.os.Build
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import com.rosan.dhizuku.BuildConfig
 import com.rosan.dhizuku.data.common.util.has
 
@@ -19,7 +16,8 @@ data object DhizukuState {
         val isOwner = isDeviceOwner || isProfileOwner
     }
 
-    var state by mutableStateOf(State())
+    @Volatile
+    var state = State()
         private set
 
     var admin = ComponentName(BuildConfig.APPLICATION_ID, DhizukuDAReceiver::class.java.name)

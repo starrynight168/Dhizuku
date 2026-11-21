@@ -4,7 +4,7 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.agp.app)
     alias(libs.plugins.ksp)
-    alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.kotlin.android)
 }
 
 val keystoreDir: String = "$rootDir/keystore"
@@ -25,7 +25,10 @@ android {
     defaultConfig {
         minSdk = 26
         targetSdk = compileSdk
-        ndkVersion = "29.0.14206865"
+        ndkVersion = "28.2.13676358"
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
 
         val versionProps: Properties = org.jetbrains.kotlin.konan.file.File("$rootDir/version.properties").loadProperties()
         versionCode = versionProps.getProperty("versionCode").toInt()
@@ -71,7 +74,6 @@ android {
 
     buildFeatures {
         buildConfig = true
-        compose = true
     }
 
     androidResources {
@@ -106,17 +108,11 @@ ksp {
 
 dependencies {
     compileOnly(project(":hidden-api"))
+    implementation(project(":flutter"))
 
     implementation(libs.androidx.core)
     implementation(libs.androidx.lifecycle)
-    implementation(libs.androidx.activity.compose)
-
-    implementation(libs.compose.ui)
-    implementation(libs.compose.ui.tooling)
-    implementation(libs.compose.navigation)
-    implementation(libs.compose.materialIcons)
     implementation(libs.material)
-    implementation(libs.compose.material3)
 
     implementation(libs.room.runtime)
     ksp(libs.room.compiler)
@@ -124,14 +120,6 @@ dependencies {
 
     implementation(libs.koin.core)
     implementation(libs.koin.android)
-    implementation(libs.koin.compose)
-
-    implementation(libs.accompanist.pager)
-    implementation(libs.accompanist.navigationAnimation)
-    implementation(libs.accompanist.flowlayout)
-    implementation(libs.accompanist.drawablepainter)
-    implementation(libs.accompanist.systemuicontroller)
-
     implementation(libs.lsposed.hiddenapibypass)
 
     implementation(libs.rikka.shizuku.api)

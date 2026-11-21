@@ -15,9 +15,6 @@ import android.os.IBinder
 import android.os.IInterface
 import android.system.Os
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 
@@ -26,7 +23,6 @@ import com.rosan.dhizuku.data.common.util.has
 import com.rosan.dhizuku.data.common.util.requireDhizukuPermissionGranted
 import com.rosan.dhizuku.data.common.util.requireShizukuPermissionGranted
 import com.rosan.dhizuku.server.DhizukuState
-import com.rosan.dhizuku.ui.page.settings.SettingsRoute
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -46,6 +42,8 @@ import java.lang.reflect.InvocationTargetException
 import rikka.shizuku.ShizukuBinderWrapper
 
 class ActivateViewModel : ViewModel(), KoinComponent {
+    enum class Mode { Dhizuku, Shizuku }
+
     private val context by inject<Context>()
 
     private val packageManager by lazy {
@@ -56,7 +54,8 @@ class ActivateViewModel : ViewModel(), KoinComponent {
         context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
     }
 
-    var state by mutableStateOf(ActivateViewState())
+    @Volatile
+    var state = ActivateViewState()
         private set
 
     fun collect() {
@@ -117,7 +116,7 @@ class ActivateViewModel : ViewModel(), KoinComponent {
     }
 
     fun activateAsDeviceOwner(
-        mode: SettingsRoute.Activate.Mode,
+        mode: Mode,
         comp: ComponentName
     ) {
         ownerType = OwnerType.Device
@@ -126,8 +125,8 @@ class ActivateViewModel : ViewModel(), KoinComponent {
         activateJob = viewModelScope.launch(Dispatchers.IO) {
             val exceptionOrNull = kotlin.runCatching {
                 when (mode) {
-                    SettingsRoute.Activate.Mode.Dhizuku -> activateByDhizuku(comp)
-                    SettingsRoute.Activate.Mode.Shizuku -> activateAsDeviceOwnerByShizuku(comp)
+                    Mode.Dhizuku -> activateByDhizuku(comp)
+                    Mode.Shizuku -> activateAsDeviceOwnerByShizuku(comp)
                 }
             }.exceptionOrNull().let {
                 if (it is InvocationTargetException) it.targetException
@@ -139,7 +138,7 @@ class ActivateViewModel : ViewModel(), KoinComponent {
     }
 
     fun activateAsProfileOwner(
-        mode: SettingsRoute.Activate.Mode,
+        mode: Mode,
         comp: ComponentName
     ) {
         ownerType = OwnerType.Profile
@@ -148,8 +147,8 @@ class ActivateViewModel : ViewModel(), KoinComponent {
         activateJob = viewModelScope.launch(Dispatchers.IO) {
             val exceptionOrNull = kotlin.runCatching {
                 when (mode) {
-                    SettingsRoute.Activate.Mode.Dhizuku -> activateByDhizuku(comp)
-                    SettingsRoute.Activate.Mode.Shizuku -> activateAsProfileOwnerByShizuku(comp)
+                    Mode.Dhizuku -> activateByDhizuku(comp)
+                    Mode.Shizuku -> activateAsProfileOwnerByShizuku(comp)
                 }
             }.exceptionOrNull().let {
                 if (it is InvocationTargetException) it.targetException
