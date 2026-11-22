@@ -1888,10 +1888,19 @@ class _ActivationPageState extends State<ActivationPage> {
 
   void _reload() => setState(() => _admins = DhizukuApi.getAdmins());
 
+  String _adminKey(Map<String, dynamic> admin) =>
+      '${admin['packageName']}/${admin['className']}';
+
+  String? _currentAdminKey(List<Map<String, dynamic>> admins) {
+    if (admins.isEmpty) return null;
+    return admins.any((admin) => _adminKey(admin) == _selected)
+        ? _selected
+        : _adminKey(admins.first);
+  }
+
   Future<void> _chooseAdmin(List<Map<String, dynamic>> admins) async {
-    final selectedKey =
-        _selected ??
-        '${admins.first['packageName']}/${admins.first['className']}';
+    final selectedKey = _currentAdminKey(admins);
+    if (selectedKey == null) return;
     final selected = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
@@ -1937,12 +1946,11 @@ class _ActivationPageState extends State<ActivationPage> {
   }
 
   Future<void> _activate(List<Map<String, dynamic>> admins) async {
-    final key = _selected;
-    final matches = admins.where(
-      (item) => '${item['packageName']}/${item['className']}' == key,
+    final selectedKey = _currentAdminKey(admins);
+    if (selectedKey == null) return;
+    final selected = admins.firstWhere(
+      (item) => _adminKey(item) == selectedKey,
     );
-    final selected = matches.isEmpty ? null : matches.first;
-    if (selected == null) return;
     final confirmed = await showDhizukuDialog<bool>(
       context,
       (context) => prism.AlertDialog(
@@ -2079,16 +2087,9 @@ class _ActivationPageState extends State<ActivationPage> {
         if (admins.isEmpty) {
           return Center(child: Text(tr(context, 'no_admins')));
         }
-        final currentSelection =
-            admins.any(
-              (item) =>
-                  '${item['packageName']}/${item['className']}' == _selected,
-            )
-            ? _selected
-            : '${admins.first['packageName']}/${admins.first['className']}';
+        final currentSelection = _currentAdminKey(admins)!;
         final selectedAdmin = admins.firstWhere(
-          (item) =>
-              '${item['packageName']}/${item['className']}' == currentSelection,
+          (item) => _adminKey(item) == currentSelection,
         );
         return ListView(
           padding: const EdgeInsets.all(20),
