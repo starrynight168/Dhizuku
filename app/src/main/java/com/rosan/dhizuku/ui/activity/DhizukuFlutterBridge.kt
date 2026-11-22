@@ -250,7 +250,8 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
                     "userId" to account.userId,
                     "type" to account.type,
                     "name" to account.name,
-                    "providerLabel" to provider?.label
+                    "providerLabel" to provider?.label,
+                    "icon" to provider?.let { iconBytes(it.icon) }
                 )
             },
             "authenticators" to authenticatorRows(userId, auths, accounts)
@@ -261,7 +262,7 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
         userId: Int,
         auths: List<AccountAuthenticatorEntity>,
         accounts: List<AccountEntity>
-    ): List<Map<String, Any>> {
+    ): List<Map<String, Any?>> {
         val prefs = activity.getSharedPreferences("frozen_packages_user_$userId", Context.MODE_PRIVATE)
         val saved = prefs.getStringSet("frozen_info", emptySet())?.toMutableSet() ?: mutableSetOf()
         val frozenInfo = saved.mapNotNull { value ->
@@ -269,7 +270,7 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
             if (parts.size == 3) parts[0] to (parts[1] to parts[2]) else null
         }.toMap()
         val activePackages = auths.associateBy { it.packageName }
-        val rows = mutableListOf<Map<String, Any>>()
+        val rows = mutableListOf<Map<String, Any?>>()
 
         auths.forEach { auth ->
             val matchingAccounts = accounts.filter { it.type == auth.type }
@@ -287,7 +288,7 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
                 }
             }
             if (matchingAccounts.isNotEmpty() || frozen) {
-                rows.add(authRow(auth.userId, auth.type, auth.packageName, auth.label, frozen))
+                rows.add(authRow(auth.userId, auth.type, auth.packageName, auth.label, frozen, iconBytes(auth.icon)))
             }
         }
 
@@ -298,20 +299,39 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
                 false
             }
             if (enabled) saved.removeAll { it.startsWith("$packageName|") }
-            rows.add(authRow(userId, info.first, packageName, info.second, frozen = !enabled))
+            rows.add(authRow(
+                userId,
+                info.first,
+                packageName,
+                info.second,
+                frozen = !enabled,
+                icon = packageIconBytes(packageName)
+            ))
         }
 
         prefs.edit().putStringSet("frozen_info", saved).apply()
         return rows.sortedBy { it["label"].toString().lowercase() }
     }
 
-    private fun authRow(userId: Int, type: String, packageName: String, label: String, frozen: Boolean) = mapOf(
+    private fun authRow(
+        userId: Int,
+        type: String,
+        packageName: String,
+        label: String,
+        frozen: Boolean,
+        icon: ByteArray?
+    ): Map<String, Any?> = mapOf(
         "userId" to userId,
         "type" to type,
         "packageName" to packageName,
         "label" to label,
-        "frozen" to frozen
+        "frozen" to frozen,
+        "icon" to icon
     )
+
+    private fun packageIconBytes(packageName: String): ByteArray? = runCatching {
+        iconBytes(activity.packageManager.getApplicationIcon(packageName))
+    }.getOrNull()
 
     private suspend fun removeAccount(call: MethodCall) = withContext(Dispatchers.IO) {
         userService.removeAccount(
@@ -356,7 +376,7 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
             .onFailure { result.error("deactivation_failed", it.message ?: it.javaClass.simpleName, null) }
     }
 
-    private suspend fun admins(): List<Map<String, String>> {
+    private suspend fun admins(): List<Map<String, Any?>> {
         activateViewModel.collectData()
         withTimeout(15_000) {
             while (activateViewModel.state.loading) delay(50)
@@ -367,7 +387,8 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
                 "packageName" to component.packageName,
                 "className" to component.className,
                 "label" to data.admin.loadLabel(activity.packageManager).toString(),
-                "enabled" to data.enabled.toString()
+                "enabled" to data.enabled.toString(),
+                "icon" to iconBytes(data.admin.loadIcon(activity.packageManager))
             )
         }
     }

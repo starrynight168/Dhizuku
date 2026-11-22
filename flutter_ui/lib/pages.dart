@@ -36,6 +36,44 @@ Route<T> dhizukuPageRoute<T>(WidgetBuilder builder) => PageRouteBuilder<T>(
   },
 );
 
+Widget _packageIcon(
+  BuildContext context,
+  Object? bytes, {
+  required IconData fallback,
+  double size = 48,
+  bool circular = false,
+  Color? backgroundColor,
+  Color? foregroundColor,
+}) {
+  final colors = Theme.of(context).colorScheme;
+  return Container(
+    width: size,
+    height: size,
+    clipBehavior: Clip.antiAlias,
+    decoration: BoxDecoration(
+      color: backgroundColor ?? colors.surfaceContainerHighest,
+      shape: circular ? BoxShape.circle : BoxShape.rectangle,
+      borderRadius: circular ? null : BorderRadius.circular(size * 0.24),
+    ),
+    child: bytes is Uint8List
+        ? Image.memory(
+            bytes,
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+            errorBuilder: (_, _, _) => Icon(
+              fallback,
+              size: size * 0.62,
+              color: foregroundColor ?? colors.onSurfaceVariant,
+            ),
+          )
+        : Icon(
+            fallback,
+            size: size * 0.62,
+            color: foregroundColor ?? colors.onSurfaceVariant,
+          ),
+  );
+}
+
 class HomePage extends StatelessWidget {
   const HomePage({
     required this.data,
@@ -1523,7 +1561,12 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
                   child: Card(
                     margin: const EdgeInsets.only(bottom: 12),
                     child: _InteractiveListRow(
-                      leading: const Icon(Icons.account_circle_outlined),
+                      leading: _packageIcon(
+                        context,
+                        accounts[index]['icon'],
+                        fallback: Icons.account_circle_outlined,
+                        size: 44,
+                      ),
                       title: Text(accounts[index]['name'].toString()),
                       subtitle: Text(_accountProviderLabel(accounts[index])),
                       trailing: IconButton.filledTonal(
@@ -1562,7 +1605,12 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
                   child: Card(
                     margin: const EdgeInsets.only(bottom: 12),
                     child: _AnimatedSwitchRow(
-                      leading: const Icon(Icons.extension_outlined),
+                      leading: _packageIcon(
+                        context,
+                        authenticators[index]['icon'],
+                        fallback: Icons.extension_outlined,
+                        size: 44,
+                      ),
                       title: authenticators[index]['label'].toString(),
                       subtitle: authenticators[index]['packageName'].toString(),
                       value: authenticators[index]['frozen'] != true,
@@ -1596,6 +1644,23 @@ class _ActivationPageState extends State<ActivationPage> {
   bool _busy = false;
 
   void _reload() => setState(() => _admins = DhizukuApi.getAdmins());
+
+  Future<void> _chooseAdmin(List<Map<String, dynamic>> admins) async {
+    final selectedKey =
+        _selected ??
+        '${admins.first['packageName']}/${admins.first['className']}';
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) =>
+          _AdminPickerSheet(admins: admins, selectedKey: selectedKey),
+    );
+    if (selected != null && mounted) {
+      setState(() => _selected = selected);
+    }
+  }
 
   Future<void> _chooseOwnerType(String value) async {
     if (value != 'profile') {
@@ -1775,6 +1840,10 @@ class _ActivationPageState extends State<ActivationPage> {
             )
             ? _selected
             : '${admins.first['packageName']}/${admins.first['className']}';
+        final selectedAdmin = admins.firstWhere(
+          (item) =>
+              '${item['packageName']}/${item['className']}' == currentSelection,
+        );
         return ListView(
           padding: const EdgeInsets.all(20),
           children: [
@@ -1791,22 +1860,23 @@ class _ActivationPageState extends State<ActivationPage> {
               child: Column(
                 children: [
                   _SectionTitle(tr(context, 'admin')),
-                  DropdownButtonFormField<String>(
-                    initialValue: currentSelection,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
+                  Card(
+                    child: _InteractiveListRow(
+                      leading: _packageIcon(
+                        context,
+                        selectedAdmin['icon'],
+                        fallback: Icons.admin_panel_settings_outlined,
+                        size: 44,
+                      ),
+                      title: Text(selectedAdmin['label'].toString()),
+                      subtitle: Text(
+                        selectedAdmin['packageName'].toString(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: const Icon(Icons.expand_more_rounded),
+                      onPressed: () => _chooseAdmin(admins),
                     ),
-                    items: [
-                      for (final item in admins)
-                        DropdownMenuItem(
-                          value: '${item['packageName']}/${item['className']}',
-                          child: Text(
-                            item['label'].toString(),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                    ],
-                    onChanged: (value) => setState(() => _selected = value),
                   ),
                 ],
               ),
@@ -1886,6 +1956,109 @@ class _ActivationPageState extends State<ActivationPage> {
       },
     ),
   );
+}
+
+class _AdminPickerSheet extends StatelessWidget {
+  const _AdminPickerSheet({required this.admins, required this.selectedKey});
+
+  final List<Map<String, dynamic>> admins;
+  final String selectedKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Material(
+      color: colors.surfaceContainerLow,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: MediaQuery.sizeOf(context).height * 0.72,
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 32,
+                height: 4,
+                decoration: ShapeDecoration(
+                  color: colors.onSurfaceVariant.withValues(alpha: 0.4),
+                  shape: prism.AppShape.full,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 12, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        tr(context, 'choose_admin_app'),
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: tr(context, 'cancel'),
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
+                  itemCount: admins.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 4),
+                  itemBuilder: (context, index) {
+                    final admin = admins[index];
+                    final key = '${admin['packageName']}/${admin['className']}';
+                    final selected = key == selectedKey;
+                    return prism.PressSurface(
+                      fill: selected
+                          ? colors.secondaryContainer
+                          : Colors.transparent,
+                      shape: prism.AppShape.xl,
+                      look: prism.PressLook.tint,
+                      onPressed: () => Navigator.pop(context, key),
+                      childFills: true,
+                      child: prism.ListRow(
+                        leading: _packageIcon(
+                          context,
+                          admin['icon'],
+                          fallback: Icons.admin_panel_settings_outlined,
+                          size: 44,
+                        ),
+                        title: Text(
+                          admin['label'].toString(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          admin['packageName'].toString(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: selected
+                            ? Icon(
+                                Icons.check_rounded,
+                                color: colors.onSecondaryContainer,
+                              )
+                            : null,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        minHeight: 72,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class PermissionRequestPage extends StatefulWidget {

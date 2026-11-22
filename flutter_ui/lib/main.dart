@@ -498,11 +498,6 @@ class _DhizukuShellState extends State<DhizukuShell> {
                         child: PageView(
                           controller: _pageController,
                           physics: const NeverScrollableScrollPhysics(),
-                          onPageChanged: (index) {
-                            if (_selected != index) {
-                              setState(() => _selected = index);
-                            }
-                          },
                           children: [
                             for (var index = 0; index < pages.length; index++)
                               _RetainedTab(

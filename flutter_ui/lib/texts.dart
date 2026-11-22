@@ -108,6 +108,7 @@ String tr(BuildContext context, String key) {
     ],
     'agree': ['同意并继续', 'Agree and continue'],
     'admin': ['设备管理组件', 'Device admin component'],
+    'choose_admin_app': ['选择管理应用', 'Select admin app'],
     'owner_type': ['所有者类型', 'Owner type'],
     'device': ['设备所有者', 'Device owner'],
     'profile': ['配置文件所有者', 'Profile owner'],
