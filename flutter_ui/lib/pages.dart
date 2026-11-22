@@ -159,9 +159,9 @@ class HomePage extends StatelessWidget {
                           ? tr(context, profile ? 'profile_owner' : 'owner')
                           : tr(context, 'not_activated'),
                       description: owner
-                          ? tr(context, 'activated')
+                          ? null
                           : tr(context, 'activation_info'),
-                      onRefresh: onRefresh,
+                      onOpenApps: () => onNavigate(1),
                     ),
                   ),
                 ),
@@ -336,13 +336,13 @@ class _StatusPanel extends StatelessWidget {
     required this.owner,
     required this.title,
     required this.description,
-    required this.onRefresh,
+    required this.onOpenApps,
   });
 
   final bool owner;
   final String title;
-  final String description;
-  final Future<void> Function() onRefresh;
+  final String? description;
+  final VoidCallback onOpenApps;
 
   @override
   Widget build(BuildContext context) {
@@ -403,46 +403,63 @@ class _StatusPanel extends StatelessWidget {
                 ],
               ),
             ),
-            IconButton(
-              onPressed: onRefresh,
-              tooltip: tr(context, 'retry'),
-              icon: const Icon(Icons.refresh),
-            ),
           ],
         ),
-        const SizedBox(height: 20),
-        AnimatedSize(
-          duration: const Duration(milliseconds: 260),
-          curve: Curves.easeOutCubic,
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 220),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              key: ValueKey(description),
-              child: Text(
-                description,
-                style: Theme.of(context).textTheme.bodyMedium
-                    ?.copyWith(color: colorScheme.onSurfaceVariant),
-              ),
-            ),
+        if (description != null) ...[
+          const SizedBox(height: 20),
+          Text(
+            description!,
+            style: Theme.of(context).textTheme.bodyMedium
+                ?.copyWith(color: colorScheme.onSurfaceVariant),
           ),
-        ),
+        ],
         const SizedBox(height: 16),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            GlyphIcon(
-              owner ? DhizukuGlyphs.verified : DhizukuGlyphs.logs,
-              size: 16,
-              color: owner ? colorScheme.primary : colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(width: 7),
-            Text(
-              owner ? tr(context, 'activated') : tr(context, 'not_activated'),
-              style: Theme.of(context).textTheme.labelMedium
-                  ?.copyWith(color: colorScheme.onSurfaceVariant),
-            ),
-          ],
+        prism.PressSurface(
+          fill: owner ? colorScheme.primaryContainer : Colors.transparent,
+          shape: prism.AppShape.xl,
+          look: owner ? prism.PressLook.tint : prism.PressLook.none,
+          onPressed: owner ? onOpenApps : null,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(
+            children: [
+              GlyphIcon(
+                owner ? DhizukuGlyphs.verified : DhizukuGlyphs.logs,
+                size: 18,
+                color: owner
+                    ? colorScheme.onPrimaryContainer
+                    : colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      owner
+                          ? tr(context, 'activated')
+                          : tr(context, 'not_activated'),
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: owner
+                            ? colorScheme.onPrimaryContainer
+                            : colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    if (owner)
+                      Text(
+                        tr(context, 'view_authorized_apps'),
+                        style: Theme.of(context).textTheme.labelSmall
+                            ?.copyWith(color: colorScheme.onPrimaryContainer),
+                      ),
+                  ],
+                ),
+              ),
+              if (owner)
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: colorScheme.onPrimaryContainer,
+                ),
+            ],
+          ),
         ),
       ],
     );
@@ -763,6 +780,86 @@ class _UserManagementPageState extends State<UserManagementPage> {
 
   void _reload() => setState(() => _users = DhizukuApi.getUsers());
 
+  Future<void> _showUserActions(Map<String, dynamic> user) async {
+    final remove = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final colors = Theme.of(context).colorScheme;
+        return Material(
+          color: colors.surfaceContainerLow,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 32,
+                    height: 4,
+                    decoration: ShapeDecoration(
+                      color: colors.onSurfaceVariant.withValues(alpha: 0.4),
+                      shape: prism.AppShape.full,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 12, 0, 12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            user['name'].toString(),
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ],
+                    ),
+                  ),
+                  prism.PressSurface(
+                    fill: colors.errorContainer,
+                    shape: prism.AppShape.xl,
+                    look: prism.PressLook.tint,
+                    onPressed: () => Navigator.pop(context, true),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.delete_outline_rounded,
+                          color: colors.onErrorContainer,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          tr(context, 'remove_user_action'),
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(color: colors.onErrorContainer),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    if (remove == true && mounted) await _remove(user);
+  }
+
   Future<void> _remove(Map<String, dynamic> user) async {
     final failedMessage = tr(context, 'operation_failed');
     final confirm = await showDialog<bool>(
@@ -970,26 +1067,18 @@ class _UserManagementPageState extends State<UserManagementPage> {
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
                 if (!current)
-                  PopupMenuButton<String>(
-                    tooltip: tr(context, 'more_options'),
-                    onSelected: (value) {
-                      if (value == 'remove') _remove(user);
-                    },
-                    itemBuilder: (context) => [
-                      PopupMenuItem(
-                        value: 'remove',
-                        child: Row(
-                          children: [
-                            const Icon(Icons.delete_outline_rounded),
-                            const SizedBox(width: 12),
-                            Text(tr(context, 'remove_user_action')),
-                          ],
-                        ),
+                  Tooltip(
+                    message: tr(context, 'more_options'),
+                    child: prism.PressSurface(
+                      fill: Colors.transparent,
+                      shape: prism.AppShape.full,
+                      look: prism.PressLook.tint,
+                      onPressed: () => _showUserActions(user),
+                      padding: const EdgeInsets.all(10),
+                      child: Icon(
+                        Icons.more_vert_rounded,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
-                    ],
-                    child: const Padding(
-                      padding: EdgeInsets.all(10),
-                      child: Icon(Icons.more_vert_rounded),
                     ),
                   ),
               ],
@@ -1264,31 +1353,15 @@ class _AppearanceSettingsCard extends StatelessWidget {
             _SectionTitle(tr(context, 'theme_mode')),
             SizedBox(
               width: double.infinity,
-              child: SegmentedButton<ThemeMode>(
-                showSelectedIcon: false,
+              child: prism.SegmentedControl<ThemeMode>(
                 segments: [
-                  ButtonSegment(
-                    value: ThemeMode.system,
-                    icon: const Icon(Icons.brightness_auto_rounded),
-                    label: Text(tr(context, 'theme_system')),
-                  ),
-                  ButtonSegment(
-                    value: ThemeMode.light,
-                    icon: const Icon(Icons.light_mode_rounded),
-                    label: Text(tr(context, 'theme_light')),
-                  ),
-                  ButtonSegment(
-                    value: ThemeMode.dark,
-                    icon: const Icon(Icons.dark_mode_rounded),
-                    label: Text(tr(context, 'theme_dark')),
-                  ),
+                  (ThemeMode.system, tr(context, 'theme_system')),
+                  (ThemeMode.light, tr(context, 'theme_light')),
+                  (ThemeMode.dark, tr(context, 'theme_dark')),
                 ],
-                selected: {appearance.themeMode},
-                onSelectionChanged: (value) => unawaited(
-                  _update(
-                    context,
-                    () => appearance.update(themeMode: value.first),
-                  ),
+                value: appearance.themeMode,
+                onChanged: (value) => unawaited(
+                  _update(context, () => appearance.update(themeMode: value)),
                 ),
               ),
             ),
@@ -1327,21 +1400,14 @@ class _AppearanceSettingsCard extends StatelessWidget {
             _SectionTitle(tr(context, 'theme_color_style')),
             SizedBox(
               width: double.infinity,
-              child: SegmentedButton<String>(
-                showSelectedIcon: false,
+              child: prism.SegmentedControl<String>(
                 segments: [
                   for (final style in prism.ColorStyle.values)
-                    ButtonSegment(
-                      value: style.name,
-                      label: Text(tr(context, 'style_${style.name}')),
-                    ),
+                    (style.name, tr(context, 'style_${style.name}')),
                 ],
-                selected: {appearance.colorStyle},
-                onSelectionChanged: (value) => unawaited(
-                  _update(
-                    context,
-                    () => appearance.update(colorStyle: value.first),
-                  ),
+                value: appearance.colorStyle,
+                onChanged: (value) => unawaited(
+                  _update(context, () => appearance.update(colorStyle: value)),
                 ),
               ),
             ),
@@ -1877,20 +1943,13 @@ class _ActivationPageState extends State<ActivationPage> {
                 child: Column(
                   children: [
                     _SectionTitle(tr(context, 'owner_type')),
-                    SegmentedButton<String>(
+                    prism.SegmentedControl<String>(
                       segments: [
-                        ButtonSegment(
-                          value: 'device',
-                          label: Text(tr(context, 'device')),
-                        ),
-                        ButtonSegment(
-                          value: 'profile',
-                          label: Text(tr(context, 'profile')),
-                        ),
+                        ('device', tr(context, 'device')),
+                        ('profile', tr(context, 'profile')),
                       ],
-                      selected: {_ownerType},
-                      onSelectionChanged: (value) =>
-                          _chooseOwnerType(value.first),
+                      value: _ownerType,
+                      onChanged: _chooseOwnerType,
                     ),
                   ],
                 ),
@@ -1902,20 +1961,14 @@ class _ActivationPageState extends State<ActivationPage> {
               child: Column(
                 children: [
                   _SectionTitle(tr(context, 'activation_mode')),
-                  SegmentedButton<String>(
+                  prism.SegmentedControl<String>(
                     segments: [
-                      ButtonSegment(
-                        value: 'dhizuku',
-                        label: Text(tr(context, 'dhizuku_mode')),
-                      ),
-                      ButtonSegment(
-                        value: 'shizuku',
-                        label: Text(tr(context, 'shizuku_mode')),
-                      ),
+                      ('dhizuku', tr(context, 'dhizuku_mode')),
+                      ('shizuku', tr(context, 'shizuku_mode')),
                     ],
-                    selected: {_mode},
-                    onSelectionChanged: (value) => setState(() {
-                      _mode = value.first;
+                    value: _mode,
+                    onChanged: (value) => setState(() {
+                      _mode = value;
                       if (_mode == 'dhizuku') _ownerType = 'device';
                     }),
                   ),
