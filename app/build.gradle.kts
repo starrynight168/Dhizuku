@@ -1,4 +1,4 @@
-import org.jetbrains.kotlin.konan.properties.loadProperties
+import com.android.build.api.dsl.ApplicationExtension
 import java.util.Properties
 
 plugins {
@@ -17,7 +17,7 @@ for (name in arrayOf("r0s.properties", "debug.properties")) {
     break
 }
 
-android {
+extensions.configure<ApplicationExtension>("android") {
     namespace = "com.rosan.dhizuku"
     compileSdk = 37
     buildToolsVersion = "37.0.0"
@@ -30,7 +30,9 @@ android {
             abiFilters += "arm64-v8a"
         }
 
-        val versionProps: Properties = org.jetbrains.kotlin.konan.file.File("$rootDir/version.properties").loadProperties()
+        val versionProps = Properties().apply {
+            rootProject.file("version.properties").inputStream().use(::load)
+        }
         versionCode = versionProps.getProperty("versionCode").toInt()
         versionName = versionProps.getProperty("versionName")
 

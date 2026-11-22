@@ -1,5 +1,6 @@
 name: dhizuku_flutter
 description: "A new Flutter module project."
+publish_to: none
 
 # The following defines the version and build number for your application.
 # A version number is three numbers separated by dots, like 1.2.43
@@ -27,9 +28,7 @@ dependencies:
     sdk: flutter
   material_ui: ^1.0.0
   prism_ui:
-    git:
-      url: https://github.com/chen08209/prism_ui.git
-      ref: 7831ade349ede896aedb8a5757dc9c3fe88081d5
+    path: packages/prism_ui
 
 dev_dependencies:
   flutter_test:

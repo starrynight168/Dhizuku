@@ -1,11 +1,15 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/physics.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:prism_ui/prism_ui.dart' as prism;
 
 import 'api.dart';
+import 'app_motion.dart';
+import 'app_navigation.dart';
+import 'app_typography.dart';
 import 'appearance.dart';
 import 'glyphs.dart';
 import 'pages.dart';
@@ -24,17 +28,32 @@ class DhizukuApp extends StatefulWidget {
   State<DhizukuApp> createState() => _DhizukuAppState();
 }
 
-class _DhizukuAppState extends State<DhizukuApp> {
+class _DhizukuAppState extends State<DhizukuApp> with WidgetsBindingObserver {
   final AppearanceSettings _appearance = AppearanceSettings();
+  late final Listenable _rebuildListenable;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _rebuildListenable = Listenable.merge([
+      _appearance,
+      AppTypography.weightAdjustment,
+    ]);
     unawaited(_appearance.load());
+    unawaited(AppTypography.refreshSystemWeightAdjustment());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(AppTypography.refreshSystemWeightAdjustment());
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _appearance.dispose();
     super.dispose();
   }
@@ -42,7 +61,7 @@ class _DhizukuAppState extends State<DhizukuApp> {
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _appearance,
+      animation: _rebuildListenable,
       builder: (context, _) => MaterialApp(
         debugShowCheckedModeBanner: false,
         title: 'Dhizuku',
@@ -54,13 +73,19 @@ class _DhizukuAppState extends State<DhizukuApp> {
         supportedLocales: const [Locale('en'), Locale('zh')],
         home: BootstrapPage(appearance: _appearance),
         builder: (context, child) {
+          final platform = Theme.of(context).platform;
           final scheme = prism.seededColorScheme(
             seedColor: _appearance.activeSeedColor,
             brightness: Theme.of(context).brightness,
             style: _colorStyle,
           );
           return prism.Theme(
-            data: prism.ThemeData(colorScheme: scheme),
+            data: prism.ThemeData(
+              colorScheme: scheme,
+              fontFamily: AppTypography.fontFamilyFor(platform),
+              fontWeightDelta: AppTypography.fontWeightDelta,
+              fontSizeFactor: AppTypography.fontSizeScale,
+            ),
             child: prism.LiquidGlassScope(
               enabled: true,
               quality: prism.LiquidGlassQuality.standard,
@@ -118,9 +143,10 @@ class _DhizukuAppState extends State<DhizukuApp> {
       inversePrimary: prismScheme.inversePrimary,
       surfaceTint: prismScheme.surfaceTint,
     );
-    return ThemeData(
+    final theme = ThemeData(
       colorScheme: colorScheme,
       useMaterial3: true,
+      fontFamily: AppTypography.fontFamilyFor(defaultTargetPlatform),
       scaffoldBackgroundColor: colorScheme.surface,
       appBarTheme: AppBarTheme(
         backgroundColor: colorScheme.surface,
@@ -129,11 +155,7 @@ class _DhizukuAppState extends State<DhizukuApp> {
         elevation: 0,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
-        titleTextStyle: TextStyle(
-          color: colorScheme.onSurface,
-          fontSize: 24,
-          fontWeight: FontWeight.w600,
-        ),
+        titleTextStyle: AppTypography.appBarTitle(colorScheme.onSurface),
       ),
       cardTheme: CardThemeData(
         color: colorScheme.surfaceContainerLow,
@@ -163,6 +185,10 @@ class _DhizukuAppState extends State<DhizukuApp> {
         actionTextColor: colorScheme.primary,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
+    );
+    return theme.copyWith(
+      textTheme: AppTypography.adjustTextTheme(theme.textTheme),
+      primaryTextTheme: AppTypography.adjustTextTheme(theme.primaryTextTheme),
     );
   }
 
@@ -423,8 +449,8 @@ class _DhizukuShellState extends State<DhizukuShell> {
     unawaited(
       _pageController.animateToPage(
         index,
-        duration: const Duration(milliseconds: 360),
-        curve: Curves.easeInOutCubic,
+        duration: AppMotion.tabPageDuration,
+        curve: AppMotion.sheetCurve,
       ),
     );
   }
@@ -525,8 +551,8 @@ class _DhizukuShellState extends State<DhizukuShell> {
       extendBody: !wide,
       appBar: AppBar(
         title: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 220),
-          switchInCurve: Curves.easeOutCubic,
+          duration: AppMotion.navigationTitleDuration,
+          switchInCurve: AppMotion.enterCurve,
           transitionBuilder: (child, animation) => FadeTransition(
             opacity: animation,
             child: SlideTransition(
@@ -704,11 +730,6 @@ class _DhizukuShellState extends State<DhizukuShell> {
   }
 }
 
-final _backPromptSpring = SpringDescription.withDurationAndBounce(
-  duration: const Duration(milliseconds: 420),
-  bounce: 0.15,
-);
-
 class _BackExitPromptCard extends StatefulWidget {
   const _BackExitPromptCard({required this.text});
 
@@ -723,7 +744,7 @@ class _BackExitPromptCardState extends State<_BackExitPromptCard>
   late final AnimationController _scale = AnimationController.unbounded(
     vsync: this,
     value: 0.88,
-  )..animateWith(SpringSimulation(_backPromptSpring, 0.88, 1, 0));
+  )..animateWith(SpringSimulation(AppMotion.selectionSpring, 0.88, 1, 0));
 
   @override
   void dispose() {
@@ -759,7 +780,7 @@ class _BackExitPromptCardState extends State<_BackExitPromptCard>
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 color: colors.onSurface,
-                fontWeight: FontWeight.w600,
+                fontWeight: AppTypography.adjustFontWeight(FontWeight.w600),
               ),
             ),
           ),

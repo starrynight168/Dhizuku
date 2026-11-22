@@ -2,6 +2,8 @@ import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:material_ui/material_ui.dart';
 import 'package:prism_ui/prism_ui.dart' as prism;
 
+import 'app_motion.dart';
+
 class DhizukuPressFeedback extends StatefulWidget {
   const DhizukuPressFeedback({
     required this.child,
@@ -57,9 +59,9 @@ class _DhizukuPressFeedbackState extends State<DhizukuPressFeedback> {
     child: AnimatedScale(
       scale: _pressed && !MediaQuery.disableAnimationsOf(context) ? 0.975 : 1,
       duration: _pressed
-          ? const Duration(milliseconds: 90)
-          : const Duration(milliseconds: 280),
-      curve: _pressed ? Curves.easeOutCubic : Curves.easeOutBack,
+          ? AppMotion.pressInDuration
+          : AppMotion.pressOutDuration,
+      curve: _pressed ? AppMotion.pressInCurve : AppMotion.pressOutCurve,
       child: widget.child,
     ),
   );

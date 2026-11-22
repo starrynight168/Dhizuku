@@ -1,8 +1,10 @@
+import com.android.build.api.dsl.LibraryExtension
+
 plugins {
     alias(libs.plugins.agp.lib)
 }
 
-android {
+extensions.configure<LibraryExtension>("android") {
     namespace = "com.rosan.hidden_api"
     compileSdk = 37
 

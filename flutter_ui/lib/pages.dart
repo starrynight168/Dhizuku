@@ -7,86 +7,14 @@ import 'package:prism_ui/icons/icons.dart' show Glyph, GlyphIcon, Glyphs;
 import 'package:prism_ui/prism_ui.dart' as prism;
 
 import 'api.dart';
+import 'app_components.dart';
+import 'app_motion.dart';
+import 'app_navigation.dart';
+import 'app_typography.dart';
 import 'appearance.dart';
 import 'glyphs.dart';
 import 'press_feedback.dart';
 import 'texts.dart';
-
-Route<T> dhizukuPageRoute<T>(WidgetBuilder builder) => PageRouteBuilder<T>(
-  transitionDuration: const Duration(milliseconds: 360),
-  reverseTransitionDuration: const Duration(milliseconds: 280),
-  pageBuilder: (context, _, _) => builder(context),
-  transitionsBuilder: (context, animation, _, child) {
-    final motion = CurvedAnimation(
-      parent: animation,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
-    );
-    return FadeTransition(
-      opacity: motion,
-      child: SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(0.045, 0.02),
-          end: Offset.zero,
-        ).animate(motion),
-        child: ScaleTransition(
-          scale: Tween<double>(begin: 0.975, end: 1).animate(motion),
-          child: child,
-        ),
-      ),
-    );
-  },
-);
-
-Future<T?> showDhizukuDialog<T>(
-  BuildContext context,
-  WidgetBuilder builder, {
-  bool dismissible = true,
-}) {
-  final reduceMotion = MediaQuery.disableAnimationsOf(context);
-  return showGeneralDialog<T>(
-    context: context,
-    barrierColor: context.colorScheme.alertScrim,
-    barrierDismissible: dismissible,
-    barrierLabel: dismissible
-        ? MaterialLocalizations.of(context).modalBarrierDismissLabel
-        : null,
-    transitionDuration: reduceMotion
-        ? Duration.zero
-        : const Duration(milliseconds: 360),
-    pageBuilder: (dialogContext, _, _) => SafeArea(
-      child: Center(
-        child: Builder(
-          builder: (scopeContext) => prism.SurfaceScope(
-            level: prism.SurfaceLevel.floatingOf(
-              prism.Theme.of(scopeContext).colorScheme,
-            ),
-            child: Builder(builder: builder),
-          ),
-        ),
-      ),
-    ),
-    transitionBuilder: (context, animation, _, child) {
-      final motion = CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeInOutCubic,
-      );
-      return prism.LiquidGlassFade(
-        opacity: motion,
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0, 0.02),
-            end: Offset.zero,
-          ).animate(motion),
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 0.96, end: 1).animate(motion),
-            child: child,
-          ),
-        ),
-      );
-    },
-  );
-}
 
 Widget _packageIcon(
   BuildContext context,
@@ -212,7 +140,7 @@ class HomePage extends StatelessWidget {
                 24,
               ),
               children: [
-                _AnimatedEntry(
+                DhizukuAnimatedEntry(
                   index: 0,
                   active: active,
                   child: _DashboardCard(
@@ -229,7 +157,7 @@ class HomePage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                _AnimatedEntry(
+                DhizukuAnimatedEntry(
                   index: 1,
                   active: active,
                   child: _DashboardCard(
@@ -253,7 +181,12 @@ class HomePage extends StatelessWidget {
                                 child: Text(
                                   tr(context, 'quick_actions'),
                                   style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(fontWeight: FontWeight.w600),
+                                      ?.copyWith(
+                                        fontWeight:
+                                            AppTypography.adjustFontWeight(
+                                              FontWeight.w600,
+                                            ),
+                                      ),
                                 ),
                               ),
                             ],
@@ -264,7 +197,7 @@ class HomePage extends StatelessWidget {
                           index < actions.length;
                           index++
                         ) ...[
-                          _AnimatedEntry(
+                          DhizukuAnimatedEntry(
                             index: index + 2,
                             active: active,
                             child: _HomeActionCard(
@@ -568,13 +501,13 @@ class _CommandConsolePageState extends State<CommandConsolePage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _InteractiveListRow(
+            DhizukuListRow(
               leading: const Icon(Icons.edit_outlined),
               title: Text(tr(dialogContext, 'command_edit_favorite')),
               onPressed: () => Navigator.pop(dialogContext, 'edit'),
             ),
             const Divider(height: 1),
-            _InteractiveListRow(
+            DhizukuListRow(
               leading: Icon(
                 Icons.delete_outline_rounded,
                 color: Theme.of(dialogContext).colorScheme.error,
@@ -611,8 +544,8 @@ class _CommandConsolePageState extends State<CommandConsolePage> {
     });
     _scrollController.animateTo(
       0,
-      duration: const Duration(milliseconds: 280),
-      curve: Curves.easeOutCubic,
+      duration: AppMotion.listScrollDuration,
+      curve: AppMotion.enterCurve,
     );
     _showMessage(tr(context, 'command_select_favorite'));
   }
@@ -842,7 +775,7 @@ class _CommandConsolePageState extends State<CommandConsolePage> {
                   )
                 else
                   for (var index = 0; index < _favorites.length; index++) ...[
-                    _InteractiveListRow(
+                    DhizukuListRow(
                       leading: Icon(
                         Icons.bookmark_outline_rounded,
                         color: colors.onSurfaceVariant,
@@ -988,7 +921,7 @@ class _StatusPanel extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 240),
+                    duration: AppMotion.dashboardStatusDuration,
                     transitionBuilder: (child, animation) => FadeTransition(
                       opacity: animation,
                       child: SlideTransition(
@@ -1005,7 +938,9 @@ class _StatusPanel extends StatelessWidget {
                       style: Theme.of(context).textTheme.headlineSmall
                           ?.copyWith(
                             color: foreground,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: AppTypography.adjustFontWeight(
+                              FontWeight.w600,
+                            ),
                           ),
                     ),
                   ),
@@ -1118,103 +1053,6 @@ class _HomeActionCard extends StatelessWidget {
   }
 }
 
-class _InteractiveListRow extends StatelessWidget {
-  const _InteractiveListRow({
-    required this.title,
-    this.subtitle,
-    this.leading,
-    this.trailing,
-    this.onPressed,
-  });
-
-  final Widget title;
-  final Widget? subtitle;
-  final Widget? leading;
-  final Widget? trailing;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    Widget row({Widget? rowTrailing}) => prism.ListRow(
-      leading: leading,
-      title: title,
-      subtitle: subtitle,
-      trailing: rowTrailing,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      minHeight: subtitle == null ? 64 : 72,
-    );
-
-    return DhizukuPressSurface(
-      fill: Colors.transparent,
-      shape: prism.AppShape.xl,
-      look: prism.PressLook.tint,
-      onPressed: onPressed,
-      childFills: true,
-      child: row(rowTrailing: trailing),
-    );
-  }
-}
-
-class _AnimatedSwitchRow extends StatelessWidget {
-  const _AnimatedSwitchRow({
-    required this.title,
-    required this.value,
-    required this.onChanged,
-    this.subtitle,
-    this.leading,
-    this.enabled = true,
-  });
-
-  final String title;
-  final String? subtitle;
-  final Widget? leading;
-  final bool value;
-  final bool enabled;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16),
-    child: ConstrainedBox(
-      constraints: BoxConstraints(minHeight: subtitle == null ? 64 : 76),
-      child: DhizukuPressSurface(
-        fill: Colors.transparent,
-        shape: prism.AppShape.xl,
-        look: prism.PressLook.tint,
-        onPressed: enabled ? () => onChanged(!value) : null,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        childFills: true,
-        child: Row(
-          children: [
-            if (leading != null) ...[leading!, const SizedBox(width: 16)],
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 3),
-                    Text(
-                      subtitle!,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: prism.Theme.of(context)
-                            .colorScheme
-                            .onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            Switch(value: value, onChanged: enabled ? onChanged : null),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
 class AppManagementPage extends StatefulWidget {
   const AppManagementPage({
     required this.active,
@@ -1274,7 +1112,7 @@ class _AppManagementPageState extends State<AppManagementPage> {
           }).toList();
           return Column(
             children: [
-              _AnimatedEntry(
+              DhizukuAnimatedEntry(
                 index: 0,
                 active: widget.active,
                 child: Padding(
@@ -1298,7 +1136,7 @@ class _AppManagementPageState extends State<AppManagementPage> {
                             final app = apps[index];
                             final blocked = app['blocked'] == true;
                             final icon = app['icon'];
-                            return _AnimatedEntry(
+                            return DhizukuAnimatedEntry(
                               key: ValueKey(app['packageName']),
                               index: index + 1,
                               active: widget.active,
@@ -1345,7 +1183,7 @@ class _AppManagementPageState extends State<AppManagementPage> {
                                       ),
                                     ),
                                     const Divider(indent: 20, endIndent: 20),
-                                    _AnimatedSwitchRow(
+                                    DhizukuSwitchRow(
                                       title: tr(context, 'api_access'),
                                       value: app['enabled'] == true && !blocked,
                                       enabled:
@@ -1356,7 +1194,7 @@ class _AppManagementPageState extends State<AppManagementPage> {
                                       onChanged: (value) =>
                                           _set(app, 'enabled', value),
                                     ),
-                                    _AnimatedSwitchRow(
+                                    DhizukuSwitchRow(
                                       title: tr(context, 'blocked'),
                                       value: blocked,
                                       enabled: !_pendingChanges.contains(
@@ -1452,7 +1290,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                   children: [
-                    _AnimatedEntry(
+                    DhizukuAnimatedEntry(
                       index: 0,
                       active: widget.active,
                       child: Card(
@@ -1533,7 +1371,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    _SectionTitle(tr(context, 'users_list')),
+                    DhizukuSectionTitle(tr(context, 'users_list')),
                     if (users.isEmpty)
                       Card(
                         child: Padding(
@@ -1554,7 +1392,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
   Widget _userCard(BuildContext context, Map<String, dynamic> user, int index) {
     final current = user['current'] == true;
     final id = user['id'] as int;
-    return _AnimatedEntry(
+    return DhizukuAnimatedEntry(
       key: ValueKey(id),
       index: index + 1,
       active: widget.active,
@@ -1565,7 +1403,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
           child: Row(
             children: [
               Expanded(
-                child: _InteractiveListRow(
+                child: DhizukuListRow(
                   leading: CircleAvatar(
                     backgroundColor: current
                         ? Theme.of(context).colorScheme.primaryContainer
@@ -1672,11 +1510,11 @@ class SettingsPage extends StatelessWidget {
   Widget build(BuildContext context) => ListView(
     padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
     children: [
-      _AnimatedEntry(
+      DhizukuAnimatedEntry(
         index: 0,
         active: active,
         child: Card(
-          child: _InteractiveListRow(
+          child: DhizukuListRow(
             leading: const Icon(Icons.palette_outlined),
             title: Text(tr(context, 'appearance_group')),
             subtitle: Text(tr(context, 'appearance_summary')),
@@ -1690,11 +1528,11 @@ class SettingsPage extends StatelessWidget {
         ),
       ),
       const SizedBox(height: 12),
-      _AnimatedEntry(
+      DhizukuAnimatedEntry(
         index: 1,
         active: active,
         child: Card(
-          child: _InteractiveListRow(
+          child: DhizukuListRow(
             leading: const Icon(Icons.menu_book_outlined),
             title: Text(tr(context, 'user_guide')),
             subtitle: Text(tr(context, 'guide_intro')),
@@ -1706,27 +1544,27 @@ class SettingsPage extends StatelessWidget {
         ),
       ),
       const SizedBox(height: 24),
-      _SectionTitle(tr(context, 'preferences_group')),
-      _AnimatedEntry(
+      DhizukuSectionTitle(tr(context, 'preferences_group')),
+      DhizukuAnimatedEntry(
         index: 2,
         active: active,
         child: Card(
           child: Column(
             children: [
-              _AnimatedSwitchRow(
+              DhizukuSwitchRow(
                 title: tr(context, 'dhizuku_enabled'),
                 value: settings['dhizukuEnabled'] == true,
                 onChanged: (value) => _toggle(context, 'dhizukuEnabled', value),
               ),
               const Divider(indent: 16, endIndent: 16),
-              _AnimatedSwitchRow(
+              DhizukuSwitchRow(
                 title: tr(context, 'whitelist'),
                 subtitle: tr(context, 'api_access'),
                 value: settings['whitelistMode'] == true,
                 onChanged: (value) => _toggle(context, 'whitelistMode', value),
               ),
               const Divider(indent: 16, endIndent: 16),
-              _AnimatedSwitchRow(
+              DhizukuSwitchRow(
                 title: tr(context, 'hide_donate'),
                 value: settings['donateButtonHidden'] == true,
                 onChanged: (value) =>
@@ -1737,14 +1575,14 @@ class SettingsPage extends StatelessWidget {
         ),
       ),
       const SizedBox(height: 24),
-      _SectionTitle(tr(context, 'about_group')),
-      _AnimatedEntry(
+      DhizukuSectionTitle(tr(context, 'about_group')),
+      DhizukuAnimatedEntry(
         index: 3,
         active: active,
         child: Card(
           child: Column(
             children: [
-              _InteractiveListRow(
+              DhizukuListRow(
                 leading: const Icon(Icons.notifications_outlined),
                 title: Text(tr(context, 'notifications')),
                 trailing: const Icon(Icons.chevron_right_rounded),
@@ -1753,7 +1591,7 @@ class SettingsPage extends StatelessWidget {
                         .invokeMethod('requestNotificationPermission'),
               ),
               const Divider(indent: 16, endIndent: 16),
-              _InteractiveListRow(
+              DhizukuListRow(
                 leading: const Icon(Icons.battery_saver_outlined),
                 title: Text(tr(context, 'battery_optimization')),
                 trailing: const Icon(Icons.chevron_right_rounded),
@@ -1762,7 +1600,7 @@ class SettingsPage extends StatelessWidget {
                         .invokeMethod('requestIgnoreBatteryOptimization'),
               ),
               const Divider(indent: 16, endIndent: 16),
-              _InteractiveListRow(
+              DhizukuListRow(
                 leading: const Icon(Icons.favorite_outline),
                 title: Text(tr(context, 'donate')),
                 trailing: const Icon(Icons.open_in_new_rounded),
@@ -1770,7 +1608,7 @@ class SettingsPage extends StatelessWidget {
                     DhizukuApi.openUrl(tr(context, 'donation_url')),
               ),
               const Divider(indent: 16, endIndent: 16),
-              _InteractiveListRow(
+              DhizukuListRow(
                 leading: const Icon(Icons.description_outlined),
                 title: Text(tr(context, 'terms')),
                 trailing: const Icon(Icons.open_in_new_rounded),
@@ -1779,7 +1617,7 @@ class SettingsPage extends StatelessWidget {
                 ),
               ),
               const Divider(indent: 16, endIndent: 16),
-              _InteractiveListRow(
+              DhizukuListRow(
                 leading: const Icon(Icons.privacy_tip_outlined),
                 title: Text(tr(context, 'privacy')),
                 trailing: const Icon(Icons.open_in_new_rounded),
@@ -1854,7 +1692,7 @@ class _GuideSection extends StatelessWidget {
   final Widget? action;
 
   @override
-  Widget build(BuildContext context) => _AnimatedEntry(
+  Widget build(BuildContext context) => DhizukuAnimatedEntry(
     index: index,
     child: Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -1888,7 +1726,7 @@ class AppearanceSettingsPage extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
           children: [
-            _AnimatedEntry(
+            DhizukuAnimatedEntry(
               index: 0,
               child: _AppearanceSettingsCard(appearance: appearance),
             ),
@@ -1953,8 +1791,8 @@ class _AppearanceSettingsCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOutCubic,
+              duration: AppMotion.themePreviewDuration,
+              curve: AppMotion.enterCurve,
               decoration: ShapeDecoration(
                 color: preview.primaryContainer,
                 shape: prism.AppShape.xl,
@@ -1963,7 +1801,7 @@ class _AppearanceSettingsCard extends StatelessWidget {
               child: Row(
                 children: [
                   AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
+                    duration: AppMotion.themePreviewDuration,
                     width: 42,
                     height: 42,
                     decoration: ShapeDecoration(
@@ -2015,7 +1853,7 @@ class _AppearanceSettingsCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            _SectionTitle(tr(context, 'theme_mode')),
+            DhizukuSectionTitle(tr(context, 'theme_mode')),
             SizedBox(
               width: double.infinity,
               child: _ThemeSegmentedControl<ThemeMode>(
@@ -2031,7 +1869,7 @@ class _AppearanceSettingsCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            _SectionTitle(tr(context, 'theme_color')),
+            DhizukuSectionTitle(tr(context, 'theme_color')),
             _ThemeColorSelector(
               options: [
                 for (final option in colorOptions)
@@ -2061,7 +1899,7 @@ class _AppearanceSettingsCard extends StatelessWidget {
               },
             ),
             const SizedBox(height: 16),
-            _SectionTitle(tr(context, 'theme_color_style')),
+            DhizukuSectionTitle(tr(context, 'theme_color_style')),
             SizedBox(
               width: double.infinity,
               child: _ThemeSegmentedControl<String>(
@@ -2111,8 +1949,8 @@ class _ThemeSegmentedControl<T> extends StatelessWidget {
         children: [
           if (index >= 0)
             AnimatedAlign(
-              duration: const Duration(milliseconds: 420),
-              curve: Curves.easeOutBack,
+              duration: AppMotion.appearanceSelectionDuration,
+              curve: AppMotion.appearanceSelectionCurve,
               alignment: AlignmentDirectional(
                 count == 1 ? 0 : index * 2 / (count - 1) - 1,
                 0,
@@ -2145,7 +1983,7 @@ class _ThemeSegmentedControl<T> extends StatelessWidget {
                         onPressed: selected ? null : () => onChanged(option),
                         child: Center(
                           child: AnimatedDefaultTextStyle(
-                            duration: const Duration(milliseconds: 200),
+                            duration: AppMotion.themeLabelDuration,
                             style:
                                 (Theme.of(context).textTheme.labelLarge ??
                                         const TextStyle())
@@ -2153,9 +1991,12 @@ class _ThemeSegmentedControl<T> extends StatelessWidget {
                                       color: selected
                                           ? colors.onPrimary
                                           : colors.onSurfaceVariant,
-                                      fontWeight: selected
-                                          ? FontWeight.w600
-                                          : FontWeight.w500,
+                                      fontWeight:
+                                          AppTypography.adjustFontWeight(
+                                            selected
+                                                ? FontWeight.w600
+                                                : FontWeight.w500,
+                                          ),
                                     ),
                             child: Text(
                               label,
@@ -2215,8 +2056,8 @@ class _ThemeColorSelector extends StatelessWidget {
               child: Stack(
                 children: [
                   AnimatedAlign(
-                    duration: const Duration(milliseconds: 420),
-                    curve: Curves.easeOutBack,
+                    duration: AppMotion.appearanceSelectionDuration,
+                    curve: AppMotion.appearanceSelectionCurve,
                     alignment: AlignmentDirectional(
                       count == 1 ? 0 : selected * 2 / (count - 1) - 1,
                       0,
@@ -2281,12 +2122,12 @@ class _ThemeColorOption extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           AnimatedScale(
-            duration: const Duration(milliseconds: 420),
-            curve: Curves.easeInOutCubic,
+            duration: AppMotion.appearanceSelectionDuration,
+            curve: AppMotion.appearanceSelectionCurve,
             scale: selected ? 1 : 0.88,
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 420),
-              curve: Curves.easeInOutCubic,
+              duration: AppMotion.appearanceSelectionDuration,
+              curve: AppMotion.appearanceSelectionCurve,
               width: 30,
               height: 30,
               decoration: ShapeDecoration(
@@ -2316,11 +2157,13 @@ class _ThemeColorOption extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           AnimatedDefaultTextStyle(
-            duration: const Duration(milliseconds: 420),
-            curve: Curves.easeInOutCubic,
+            duration: AppMotion.appearanceSelectionDuration,
+            curve: AppMotion.appearanceSelectionCurve,
             style: Theme.of(context).textTheme.labelSmall!.copyWith(
               color: selected ? colors.onPrimary : colors.onSurfaceVariant,
-              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+              fontWeight: AppTypography.adjustFontWeight(
+                selected ? FontWeight.w600 : FontWeight.w500,
+              ),
             ),
             child: Text(
               option.label,
@@ -2608,7 +2451,7 @@ class _AccountManagementPageState extends State<AccountManagementPage>
           child: ListView(
             padding: const EdgeInsets.all(12),
             children: [
-              _DescribedSectionTitle(
+              DhizukuDescribedSectionTitle(
                 title: tr(context, 'authenticators'),
                 description: tr(context, 'authenticators_description'),
               ),
@@ -2702,7 +2545,7 @@ class _AccountManagementPageState extends State<AccountManagementPage>
                   ),
                 ),
               for (var index = 0; index < accountApps.length; index++)
-                _AnimatedEntry(
+                DhizukuAnimatedEntry(
                   key: ValueKey(
                     'authenticator-${accountApps[index]['packageName']}',
                   ),
@@ -2710,7 +2553,7 @@ class _AccountManagementPageState extends State<AccountManagementPage>
                   animate: index < 8,
                   child: Card(
                     margin: const EdgeInsets.only(bottom: 12),
-                    child: _AnimatedSwitchRow(
+                    child: DhizukuSwitchRow(
                       leading: _packageIcon(
                         context,
                         accountApps[index]['icon'],
@@ -2727,7 +2570,7 @@ class _AccountManagementPageState extends State<AccountManagementPage>
                   ),
                 ),
               const SizedBox(height: 16),
-              _DescribedSectionTitle(
+              DhizukuDescribedSectionTitle(
                 title: tr(context, 'accounts'),
                 description: tr(context, 'accounts_description'),
               ),
@@ -2737,13 +2580,13 @@ class _AccountManagementPageState extends State<AccountManagementPage>
                   child: Text(tr(context, 'no_data')),
                 ),
               for (var index = 0; index < accounts.length; index++)
-                _AnimatedEntry(
+                DhizukuAnimatedEntry(
                   key: ValueKey('account-${accounts[index]['name']}-$index'),
                   index: accountApps.length + index,
                   animate: index < 8,
                   child: Card(
                     margin: const EdgeInsets.only(bottom: 12),
-                    child: _InteractiveListRow(
+                    child: DhizukuListRow(
                       leading: _packageIcon(
                         context,
                         accounts[index]['icon'],
@@ -2791,11 +2634,6 @@ class _AccountManagementPageState extends State<AccountManagementPage>
   );
 }
 
-final _activationSpring = SpringDescription.withDurationAndBounce(
-  duration: const Duration(milliseconds: 420),
-  bounce: 0.15,
-);
-
 class _ActivationChoiceCards<T> extends StatefulWidget {
   const _ActivationChoiceCards({
     required this.choices,
@@ -2823,7 +2661,12 @@ class _ActivationChoiceCardsState<T> extends State<_ActivationChoiceCards<T>>
     if (widget.value != oldWidget.value) {
       _selectionScale.value = 0.92;
       _selectionScale.animateWith(
-        SpringSimulation(_activationSpring, _selectionScale.value, 1, 0),
+        SpringSimulation(
+          AppMotion.selectionSpring,
+          _selectionScale.value,
+          1,
+          0,
+        ),
       );
     }
   }
@@ -2855,8 +2698,8 @@ class _ActivationChoiceCardsState<T> extends State<_ActivationChoiceCards<T>>
                   final (value, label, icon) = widget.choices[index];
                   final selected = value == widget.value;
                   return AnimatedContainer(
-                    duration: const Duration(milliseconds: 260),
-                    curve: Curves.easeOutCubic,
+                    duration: AppMotion.selectionCardDuration,
+                    curve: AppMotion.enterCurve,
                     decoration: ShapeDecoration(
                       color: selected
                           ? colors.primaryContainer
@@ -2897,8 +2740,8 @@ class _ActivationChoiceCardsState<T> extends State<_ActivationChoiceCards<T>>
                                 children: [
                                   AnimatedScale(
                                     scale: selected ? 1.08 : 1,
-                                    duration: const Duration(milliseconds: 220),
-                                    curve: Curves.easeOutBack,
+                                    duration: AppMotion.contentSwitchDuration,
+                                    curve: AppMotion.activationSelectionCurve,
                                     child: Icon(
                                       icon,
                                       size: 24,
@@ -2920,9 +2763,12 @@ class _ActivationChoiceCardsState<T> extends State<_ActivationChoiceCards<T>>
                                           color: selected
                                               ? colors.onPrimaryContainer
                                               : colors.onSurface,
-                                          fontWeight: selected
-                                              ? FontWeight.w600
-                                              : FontWeight.w500,
+                                          fontWeight:
+                                              AppTypography.adjustFontWeight(
+                                                selected
+                                                    ? FontWeight.w600
+                                                    : FontWeight.w500,
+                                              ),
                                         ),
                                   ),
                                 ],
@@ -2931,7 +2777,7 @@ class _ActivationChoiceCardsState<T> extends State<_ActivationChoiceCards<T>>
                             Align(
                               alignment: AlignmentDirectional.topEnd,
                               child: AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 180),
+                                duration: AppMotion.activationModeDuration,
                                 transitionBuilder: (child, animation) =>
                                     ScaleTransition(
                                       scale: animation,
@@ -2999,19 +2845,9 @@ class _ActivationPageState extends State<ActivationPage> {
   Future<void> _chooseAdmin(List<Map<String, dynamic>> admins) async {
     final selectedKey = _currentAdminKey(admins);
     if (selectedKey == null) return;
-    final selected = await showModalBottomSheet<String>(
-      context: context,
+    final selected = await showDhizukuBottomSheet<String>(
+      context,
       isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      sheetAnimationStyle: MediaQuery.disableAnimationsOf(context)
-          ? AnimationStyle.noAnimation
-          : const AnimationStyle(
-              duration: Duration(milliseconds: 360),
-              reverseDuration: Duration(milliseconds: 300),
-              curve: Curves.easeInOutCubic,
-              reverseCurve: Curves.easeInOutCubic,
-            ),
       builder: (context) =>
           _AdminPickerSheet(admins: admins, selectedKey: selectedKey),
     );
@@ -3070,6 +2906,7 @@ class _ActivationPageState extends State<ActivationPage> {
             (await DhizukuApi.getAccountData(0))['accounts']
                 as List<Map<String, dynamic>>;
       } catch (_) {}
+      if (!mounted) return;
       if (accountRows?.isNotEmpty == true) {
         setState(() => _busy = false);
         final openAccounts = await showDhizukuDialog<bool>(
@@ -3369,7 +3206,7 @@ class _ActivationPageState extends State<ActivationPage> {
         return ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            _AnimatedEntry(
+            DhizukuAnimatedEntry(
               index: 0,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -3382,13 +3219,13 @@ class _ActivationPageState extends State<ActivationPage> {
               ),
             ),
             const SizedBox(height: 20),
-            _AnimatedEntry(
+            DhizukuAnimatedEntry(
               index: 1,
               child: Column(
                 children: [
-                  _SectionTitle(tr(context, 'admin')),
+                  DhizukuSectionTitle(tr(context, 'admin')),
                   Card(
-                    child: _InteractiveListRow(
+                    child: DhizukuListRow(
                       leading: _packageIcon(
                         context,
                         selectedAdmin['icon'],
@@ -3410,16 +3247,16 @@ class _ActivationPageState extends State<ActivationPage> {
             ),
             AnimatedSize(
               alignment: Alignment.topCenter,
-              duration: const Duration(milliseconds: 360),
-              curve: Curves.easeOutBack,
+              duration: AppMotion.activationExpandDuration,
+              curve: AppMotion.activationSelectionCurve,
               child: _mode == 'shizuku'
                   ? Padding(
                       padding: const EdgeInsets.only(top: 20),
-                      child: _AnimatedEntry(
+                      child: DhizukuAnimatedEntry(
                         index: 2,
                         child: Column(
                           children: [
-                            _SectionTitle(tr(context, 'owner_type')),
+                            DhizukuSectionTitle(tr(context, 'owner_type')),
                             _ActivationChoiceCards<String>(
                               choices: [
                                 (
@@ -3443,11 +3280,11 @@ class _ActivationPageState extends State<ActivationPage> {
                   : const SizedBox.shrink(),
             ),
             const SizedBox(height: 20),
-            _AnimatedEntry(
+            DhizukuAnimatedEntry(
               index: 3,
               child: Column(
                 children: [
-                  _SectionTitle(tr(context, 'activation_mode')),
+                  DhizukuSectionTitle(tr(context, 'activation_mode')),
                   _ActivationChoiceCards<String>(
                     choices: [
                       (
@@ -3486,7 +3323,7 @@ class _ActivationPageState extends State<ActivationPage> {
               ),
             ),
             const SizedBox(height: 20),
-            _AnimatedEntry(
+            DhizukuAnimatedEntry(
               index: 4,
               child: DhizukuPressFeedback(
                 enabled: !_busy,
@@ -3496,7 +3333,7 @@ class _ActivationPageState extends State<ActivationPage> {
                     shape: WidgetStatePropertyAll(StadiumBorder()),
                   ),
                   icon: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 220),
+                    duration: AppMotion.contentSwitchDuration,
                     child: _busy
                         ? const SizedBox.square(
                             key: ValueKey('busy'),
@@ -3573,7 +3410,7 @@ class _AdminPickerSheet extends StatelessWidget {
                     final admin = admins[index];
                     final key = '${admin['packageName']}/${admin['className']}';
                     final selected = key == selectedKey;
-                    return _AnimatedEntry(
+                    return DhizukuAnimatedEntry(
                       index: index,
                       animate: index < 8,
                       child: DhizukuPressSurface(
@@ -3670,7 +3507,7 @@ class _PermissionRequestPageState extends State<PermissionRequestPage> {
           constraints: const BoxConstraints(maxWidth: 460),
           child: Padding(
             padding: const EdgeInsets.all(24),
-            child: _AnimatedEntry(
+            child: DhizukuAnimatedEntry(
               index: 0,
               child: Card(
                 child: Padding(
@@ -3720,7 +3557,7 @@ class _PermissionRequestPageState extends State<PermissionRequestPage> {
                           ),
                           const SizedBox(width: 10),
                           AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 220),
+                            duration: AppMotion.contentSwitchDuration,
                             transitionBuilder: (child, animation) =>
                                 FadeTransition(
                                   opacity: animation,
@@ -3771,122 +3608,6 @@ class _PermissionRequestPageState extends State<PermissionRequestPage> {
           ),
         ),
       ),
-    ),
-  );
-}
-
-class _AnimatedEntry extends StatefulWidget {
-  const _AnimatedEntry({
-    required this.index,
-    required this.child,
-    this.animate = true,
-    this.active = true,
-    super.key,
-  });
-
-  final int index;
-  final Widget child;
-  final bool animate;
-  final bool active;
-
-  @override
-  State<_AnimatedEntry> createState() => _AnimatedEntryState();
-}
-
-class _AnimatedEntryState extends State<_AnimatedEntry> {
-  Timer? _timer;
-  bool _visible = true;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.active) {
-      _visible = false;
-      _scheduleEntry();
-    }
-  }
-
-  void _scheduleEntry() {
-    _timer = Timer(Duration(milliseconds: widget.index.clamp(0, 8) * 32), () {
-      if (mounted) setState(() => _visible = true);
-    });
-  }
-
-  @override
-  void didUpdateWidget(covariant _AnimatedEntry oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.active && !widget.active) {
-      _timer?.cancel();
-      _visible = true;
-    }
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!widget.animate || MediaQuery.disableAnimationsOf(context)) {
-      return widget.child;
-    }
-    return AnimatedOpacity(
-      opacity: _visible ? 1 : 0,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOutCubic,
-      child: AnimatedSlide(
-        offset: _visible ? Offset.zero : const Offset(0, 0.035),
-        duration: const Duration(milliseconds: 360),
-        curve: Curves.easeOutCubic,
-        child: AnimatedScale(
-          scale: _visible ? 1 : 0.985,
-          duration: const Duration(milliseconds: 360),
-          curve: Curves.easeOutCubic,
-          child: widget.child,
-        ),
-      ),
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.text);
-  final String text;
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(4, 8, 4, 12),
-    child: Text(text, style: Theme.of(context).textTheme.titleMedium),
-  );
-}
-
-class _DescribedSectionTitle extends StatelessWidget {
-  const _DescribedSectionTitle({
-    required this.title,
-    required this.description,
-  });
-
-  final String title;
-  final String description;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 8),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _SectionTitle(title),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
-          child: Text(
-            description,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
-      ],
     ),
   );
 }

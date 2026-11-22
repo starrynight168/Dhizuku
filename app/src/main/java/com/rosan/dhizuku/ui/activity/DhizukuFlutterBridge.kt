@@ -86,6 +86,7 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
                 result.success(null)
             }
             "getSettings" -> result.success(settings())
+            "getSystemFontWeightAdjustment" -> result.success(systemFontWeightAdjustment())
             "setSetting" -> setSetting(call, result)
             "getCommandFavorites" -> result.success(commandFavorites())
             "saveCommandFavorites" -> saveCommandFavorites(call, result)
@@ -273,6 +274,12 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
             .putString("colorStyle", colorStyle)
             .apply()
         result.success(appearance())
+    }
+
+    private fun systemFontWeightAdjustment(): Int {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return 0
+        return activity.resources.configuration.fontWeightAdjustment
+            .takeUnless { it == Int.MAX_VALUE } ?: 0
     }
 
     private fun systemSeedColor(): Long? {
