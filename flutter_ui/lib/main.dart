@@ -21,8 +21,7 @@ class _PrismColorSchemeTween extends Tween<prism.ColorScheme> {
     : super(begin: scheme, end: scheme);
 
   @override
-  prism.ColorScheme lerp(double t) =>
-      prism.ColorScheme.lerp(begin!, end!, t);
+  prism.ColorScheme lerp(double t) => prism.ColorScheme.lerp(begin!, end!, t);
 }
 
 class DhizukuApp extends StatefulWidget {
@@ -62,6 +61,23 @@ class _DhizukuAppState extends State<DhizukuApp> {
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
         supportedLocales: const [Locale('en'), Locale('zh')],
         home: BootstrapPage(appearance: _appearance),
+        builder: (context, child) {
+          final scheme = prism.seededColorScheme(
+            seedColor: _appearance.activeSeedColor,
+            brightness: Theme.of(context).brightness,
+            style: _colorStyle,
+          );
+          return TweenAnimationBuilder<prism.ColorScheme>(
+            tween: _PrismColorSchemeTween(scheme),
+            duration: const Duration(milliseconds: 420),
+            curve: Curves.easeInOutCubic,
+            builder: (context, colorScheme, child) => prism.Theme(
+              data: prism.ThemeData(colorScheme: colorScheme),
+              child: child ?? const SizedBox.shrink(),
+            ),
+            child: child,
+          );
+        },
       ),
     );
   }
@@ -491,11 +507,6 @@ class _DhizukuShellState extends State<DhizukuShell> {
     ];
     final wide = MediaQuery.sizeOf(context).width >= 720;
     final title = tr(context, labels[_selected]);
-    final prismScheme = prism.seededColorScheme(
-      seedColor: widget.appearance.activeSeedColor,
-      brightness: Theme.of(context).brightness,
-      style: _colorStyle,
-    );
     final scaffold = Scaffold(
       extendBody: !wide,
       appBar: AppBar(
@@ -550,57 +561,48 @@ class _DhizukuShellState extends State<DhizukuShell> {
             const VerticalDivider(width: 1),
           ],
           Expanded(
-            child: TweenAnimationBuilder<prism.ColorScheme>(
-              tween: _PrismColorSchemeTween(prismScheme),
-              duration: const Duration(milliseconds: 420),
-              curve: Curves.easeInOutCubic,
-              builder: (context, colorScheme, child) => prism.Theme(
-                data: prism.ThemeData(colorScheme: colorScheme),
-                child: child!,
-              ),
-              child: prism.Surface(
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: Padding(
-                        padding: EdgeInsets.only(
-                          bottom: wide
-                              ? 0
-                              : prism.NavigationDock.insetOf(context),
-                        ),
-                        child: PageView(
-                          controller: _pageController,
-                          physics: const NeverScrollableScrollPhysics(),
-                          children: [
-                            for (var index = 0; index < pages.length; index++)
-                              _RetainedTab(
-                                key: ValueKey(index),
-                                active: index == _selected,
-                                child: pages[index],
-                              ),
-                          ],
-                        ),
+            child: prism.Surface(
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        bottom: wide
+                            ? 0
+                            : prism.NavigationDock.insetOf(context),
+                      ),
+                      child: PageView(
+                        controller: _pageController,
+                        physics: const NeverScrollableScrollPhysics(),
+                        children: [
+                          for (var index = 0; index < pages.length; index++)
+                            _RetainedTab(
+                              key: ValueKey(index),
+                              active: index == _selected,
+                              child: pages[index],
+                            ),
+                        ],
                       ),
                     ),
-                    if (!wide)
-                      PositionedDirectional(
-                        start: 0,
-                        end: 0,
-                        bottom: 0,
-                        child: prism.NavigationDock(
-                          destinations: [
-                            for (var index = 0; index < labels.length; index++)
-                              prism.NavigationDockDestination(
-                                glyph: glyphs[index],
-                                label: tr(context, labels[index]),
-                              ),
-                          ],
-                          selectedIndex: _selected,
-                          onSelected: _selectPage,
-                        ),
+                  ),
+                  if (!wide)
+                    PositionedDirectional(
+                      start: 0,
+                      end: 0,
+                      bottom: 0,
+                      child: prism.NavigationDock(
+                        destinations: [
+                          for (var index = 0; index < labels.length; index++)
+                            prism.NavigationDockDestination(
+                              glyph: glyphs[index],
+                              label: tr(context, labels[index]),
+                            ),
+                        ],
+                        selectedIndex: _selected,
+                        onSelected: _selectPage,
                       ),
-                  ],
-                ),
+                    ),
+                ],
               ),
             ),
           ),
@@ -621,11 +623,6 @@ class _DhizukuShellState extends State<DhizukuShell> {
       context,
     ).showSnackBar(SnackBar(content: Text('${tr(context, 'error')}: $error')));
   }
-
-  prism.ColorStyle get _colorStyle => prism.ColorStyle.values.firstWhere(
-    (style) => style.name == widget.appearance.colorStyle,
-    orElse: () => prism.ColorStyle.vivid,
-  );
 
   Future<void> _confirmShutdown() async {
     final confirm = await showDhizukuDialog<bool>(

@@ -10,32 +10,37 @@ String tr(BuildContext context, String key) {
     'users': ['用户', 'Users'],
     'settings': ['设置', 'Settings'],
     'appearance_group': ['外观与主题', 'Appearance & theme'],
-    'user_guide': ['使用指南', 'User guide'],
-    'guide_intro': ['常见功能和问题处理', 'Features and common fixes'],
+    'user_guide': ['帮助与故障处理', 'Help & troubleshooting'],
+    'guide_intro': ['账户处理与激活问题', 'Accounts and activation'],
     'guide_apps_title': ['应用权限', 'App access'],
     'guide_apps_body': [
       '允许 Dhizuku API 后，应用才能调用 Dhizuku。阻止应用会暂停该应用的 Dhizuku API；白名单模式开启时，只有明确允许的应用可以访问。',
       'Allow Dhizuku API to let an app use Dhizuku. Blocking an app suspends its Dhizuku access. In whitelist mode, only explicitly allowed apps can access it.',
     ],
-    'guide_accounts_title': ['用户与账户', 'Users and accounts'],
+    'guide_accounts_title': ['账户服务与系统账户', 'Account apps and system accounts'],
     'guide_accounts_body': [
-      '点开用户可管理该用户的账户和账户应用。关闭账户应用会在该用户下停用整个应用。若账户名称被系统隐藏，请到系统账户设置中查看或移除。',
-      'Open a user to manage its accounts and account apps. Turning off an account app disables that app for that user. If Android hides an account name, view or remove it in system account settings.',
+      '若只是暂停账户服务，先在用户详情关闭对应的“账户应用”开关：这会停用该用户下的整个应用，但保留账户登录。若 Android 因设备上已有账户而拒绝设置设备所有者，冻结应用不会清除系统账户；请备份后再从系统账户设置移除。',
+      'To pause an account service, turn off its “Account apps” switch in user details. This disables the whole app for that user while keeping the account signed in. If Android refuses device-owner setup because accounts remain, freezing the app will not remove system accounts; back up data, then remove them in system account settings.',
     ],
-    'guide_activation_title': ['激活失败怎么办', 'If activation fails'],
+    'guide_activation_title': ['激活方式', 'Activation methods'],
     'guide_activation_body': [
-      'Android 不允许在设备已有账户时设置设备所有者。先备份重要数据，再到系统账户设置移除账户，然后返回重试。若要管理工作资料，请选择配置文件所有者。',
-      'Android will not set a device owner while accounts remain on the device. Back up important data, remove the accounts in system settings, then retry. Choose profile owner when managing a work profile.',
+      'Dhizuku 会转移当前设备所有者身份；Shizuku 会直接设置所选组件为设备所有者或配置文件所有者。激活页会显示各方式的前置条件与影响。',
+      'Dhizuku transfers the current device-owner role. Shizuku directly assigns the selected component as device owner or profile owner. The activation page shows each method’s requirements and effects.',
     ],
     'guide_open_accounts': ['打开系统账户设置', 'Open system account settings'],
-    'account_name_hidden': ['账户名称已被系统隐藏', 'Account name hidden by Android'],
+    'account_name_hidden': ['名称已隐藏', 'Name hidden'],
+    'remove_account_tooltip': ['移除账户（需要退出登录）', 'Remove account (signs out)'],
     'account_name_hidden_title': [
       '无法直接移除这个账户',
       'This account cannot be removed here',
     ],
     'account_name_hidden_body': [
-      'Android 返回的是隐藏后的账户名称，应用无法准确定位它。请打开系统账户设置查看或移除。',
-      'Android returned a redacted account name, so the app cannot identify it safely. Open system account settings to view or remove it.',
+      'Android 隐藏了账户名称，应用无法安全定位它。若只是暂停服务，请关闭对应的账户应用；若系统拒绝设置设备所有者，冻结不会移除系统账户，请备份后到系统账户设置处理。',
+      'Android hid the account name, so the app cannot identify it safely. To pause the service, disable its account app. If Android refuses device-owner setup, freezing will not remove the system account; back up data and handle it in system account settings.',
+    ],
+    'remove_account_warning': [
+      '移除会让该用户退出此账户。若只是暂停服务，请取消并冻结上方对应的账户应用；若 Android 因账户阻止设置设备所有者，则必须从系统账户中移除。',
+      'Removing this signs the user out. To only pause the service, cancel and freeze its account app above. If Android blocks device-owner setup because of this account, it must be removed from system accounts.',
     ],
     'account_confirmation_pending': [
       '已打开系统确认界面；完成确认后返回此页刷新。',
@@ -43,14 +48,20 @@ String tr(BuildContext context, String key) {
     ],
     'activation_failed': ['激活没有完成', 'Activation did not complete'],
     'activation_accounts_blocked': [
-      '设备上仍有账户，Android 因此拒绝设置设备所有者。备份重要数据后，打开系统账户设置移除账户，再回来重试。',
-      'Accounts remain on the device, so Android refused to set the device owner. Back up important data, remove the accounts in system settings, then return and retry.',
+      '设备上仍有系统账户，Android 因此拒绝设置设备所有者。冻结账户应用只会暂停应用，不会清除系统账户记录。请备份重要数据后，从系统账户设置移除账户再重试；若只是暂停账户服务，则无需移除账户。',
+      'System accounts remain on the device, so Android refused device-owner setup. Freezing an account app only pauses the app; it does not clear the system account record. Back up important data, remove the account in system settings, then retry. If you only want to pause the service, no account removal is needed.',
     ],
-    'activation_troubleshoot': [
-      '检查 Shizuku 是否已启动、已授予权限，并确认所选管理组件仍已安装。也可以打开使用指南查看常见处理方法。',
-      'Check that Shizuku is running and authorized, and that the selected admin component is installed. Open the user guide for common fixes.',
+    'activation_dhizuku_troubleshoot': [
+      'Dhizuku 方式要求当前 Dhizuku 已激活并获得所需权限。若这是首次设置，请改用 Shizuku 方式；同时确认目标管理组件仍已安装。',
+      'Dhizuku mode requires Dhizuku to already be active and authorized. For first-time setup, choose Shizuku mode. Also confirm the target admin component is installed.',
+    ],
+    'activation_shizuku_troubleshoot': [
+      '确认 Shizuku 服务正在运行、Dhizuku 已获得 Shizuku 授权，并且所选管理组件仍已安装。',
+      'Confirm the Shizuku service is running, Dhizuku has Shizuku authorization, and the selected admin component is installed.',
     ],
     'error_details': ['错误详情', 'Error details'],
+    'copy_error': ['复制完整错误', 'Copy full error'],
+    'error_copied': ['完整错误已复制', 'Full error copied'],
     'appearance_summary': ['主题模式、颜色和配色风格', 'Theme mode, colors, and palette'],
     'theme_preview': ['Dhizuku 外观预览', 'Dhizuku preview'],
     'theme_preview_subtitle': [
@@ -117,15 +128,15 @@ String tr(BuildContext context, String key) {
     'confirm': ['确认', 'Confirm'],
     'accounts': ['已添加账户', 'Saved accounts'],
     'accounts_description': [
-      '这些是该用户已保存的账户，可单独移除。',
-      'These accounts are saved for this user and can be removed individually.',
+      '这里列出该用户已添加的账户。只想暂停服务时，先冻结上方对应的账户应用并保留登录；若 Android 因设备已有账户拒绝设置设备所有者，则需从系统账户设置移除账户。移除会使该用户退出账户。',
+      'Accounts added for this user appear here. To pause a service while staying signed in, freeze its account app above. If Android refuses device-owner setup because accounts remain, remove the account in system settings. Removing it signs the user out.',
     ],
     'account_from': ['由 {provider} 提供', 'Provided by {provider}'],
     'account_type': ['账户类型：{type}', 'Account type: {type}'],
-    'authenticators': ['账户应用', 'Account apps'],
+    'authenticators': ['账户应用（优先冻结）', 'Account apps (freeze first)'],
     'authenticators_description': [
-      '这些应用提供账户服务；关闭开关会停用该用户下的对应应用。',
-      'These apps provide account services. Turning one off disables it for this user.',
+      '先关闭与账户来源对应的应用开关。冻结会停用该用户下整个应用，但保留账户登录状态。',
+      'First turn off the app matching the account provider. Freezing disables the whole app for this user while keeping the account signed in.',
     ],
     'open_system_accounts': ['打开系统账户设置', 'Open system account settings'],
     'system_accounts_unavailable': [
@@ -160,25 +171,44 @@ String tr(BuildContext context, String key) {
     'owner_type': ['所有者类型', 'Owner type'],
     'device': ['设备所有者', 'Device owner'],
     'profile': ['配置文件所有者', 'Profile owner'],
-    'activation_mode': ['激活方式', 'Activation method'],
+    'activation_mode': ['执行方式', 'Method'],
     'dhizuku_mode': ['Dhizuku', 'Dhizuku'],
     'shizuku_mode': ['Shizuku', 'Shizuku'],
+    'activation_dhizuku_detail': [
+      '要求当前 Dhizuku 已作为设备所有者运行并获授权；此操作会把设备所有者身份转移给所选组件。',
+      'Requires Dhizuku to be an active, authorized device owner. This transfers the device-owner role to the selected component.',
+    ],
+    'activation_shizuku_detail': [
+      '要求 Shizuku 正在运行且已授权；由 Shizuku 将所选组件设为设备所有者或配置文件所有者。',
+      'Requires running, authorized Shizuku. Shizuku sets the selected component as device owner or profile owner.',
+    ],
     'activate': ['开始激活', 'Activate'],
     'no_admins': ['未找到可用的设备管理组件', 'No available device admin components'],
-    'activation_warning': [
-      '转移所有者可能影响设备管理功能，请确认目标组件可信。',
-      'Ownership transfer can affect device management. Make sure you trust the selected component.',
+    'activation_warning_dhizuku': [
+      '这会把 Dhizuku 当前的设备所有者身份转移给所选组件；转移后 Dhizuku 将不再是设备所有者。请确认目标可信。',
+      'This transfers Dhizuku’s current device-owner role to the selected component. Dhizuku will no longer be the device owner. Make sure you trust the target.',
+    ],
+    'activation_warning_shizuku_device': [
+      'Shizuku 将把所选组件设置为设备所有者，使其获得设备级管理权限。请确认目标可信。',
+      'Shizuku will set the selected component as device owner, granting device-level management privileges. Make sure you trust the target.',
+    ],
+    'activation_warning_shizuku_profile': [
+      'Shizuku 将把所选组件设置为配置文件所有者，使其管理当前工作资料。请确认目标可信。',
+      'Shizuku will set the selected component as profile owner for the current work profile. Make sure you trust the target.',
     ],
     'profile_owner_warning_title': ['配置文件所有者提醒', 'Profile owner warning'],
     'profile_owner_warning_dsp': [
-      '此更改可能影响设备管理功能，仅应由了解其影响的用户进行。Dhizuku 开发者无法保证此模式不会造成意外行为。',
-      'Only continue if you understand the implications. The Dhizuku developers cannot guarantee that this change will not cause unexpected behavior.',
+      '配置文件所有者可以管理当前工作资料中的应用和策略。仅在目标资料正确且你了解影响时继续。',
+      'A profile owner can manage apps and policies in the current work profile. Continue only if this is the intended profile and you understand the impact.',
     ],
     'activation_running': [
       '正在等待 Android 完成所有者设置…',
       'Waiting for Android to finish setting the owner…',
     ],
-    'activation_success': ['设备所有者已更新。', 'The device owner has been updated.'],
+    'activation_success': [
+      '所选组件已获得相应的所有者身份。',
+      'The selected component now has the chosen owner role.',
+    ],
     'activation_cancelled': ['已取消激活。', 'Activation was cancelled.'],
     'finish': ['完成', 'Finish'],
     'permission_request': ['请求 Dhizuku API 权限', 'Dhizuku API access request'],
@@ -195,8 +225,8 @@ String tr(BuildContext context, String key) {
     'no_data': ['暂无数据', 'No data available'],
     'adb_command': ['连接 ADB 后运行以下命令：', 'Connect ADB and run:'],
     'activation_info': [
-      '激活需要 Android 设备管理权限。选择已安装的管理组件，并确认激活方式。',
-      'Activation requires Android device admin privileges. Choose an installed admin component and activation method.',
+      '选择管理组件，再选择设置所有者身份的执行方式。',
+      'Choose the admin component and how to assign its owner role.',
     ],
     'donation_url': [
       'https://github.com/iamr0s/Dhizuku/blob/main/docs/DONATE.md',

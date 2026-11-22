@@ -1281,7 +1281,7 @@ class UserGuidePage extends StatelessWidget {
           body: tr(context, 'guide_accounts_body'),
           action: FilledButton.tonalIcon(
             onPressed: () => _openAccounts(context),
-            icon: const Icon(Icons.manage_accounts_outlined),
+            icon: const Icon(Icons.settings_outlined),
             label: Text(tr(context, 'guide_open_accounts')),
           ),
         ),
@@ -1289,11 +1289,6 @@ class UserGuidePage extends StatelessWidget {
           index: 2,
           title: tr(context, 'guide_activation_title'),
           body: tr(context, 'guide_activation_body'),
-          action: FilledButton.tonalIcon(
-            onPressed: () => _openAccounts(context),
-            icon: const Icon(Icons.settings_outlined),
-            label: Text(tr(context, 'guide_open_accounts')),
-          ),
         ),
       ],
     ),
@@ -1759,7 +1754,9 @@ class _ThemeColorOption extends StatelessWidget {
                       size: 16,
                       color: selected
                           ? colors.onPrimary
-                          : ThemeData.estimateBrightnessForColor(option.color) ==
+                          : ThemeData.estimateBrightnessForColor(
+                                  option.color,
+                                ) ==
                                 Brightness.dark
                           ? Colors.white
                           : Colors.black,
@@ -1933,7 +1930,9 @@ class _AccountManagementPageState extends State<AccountManagementPage>
             child: Text(tr(context, 'remove')),
           ),
         ],
-        child: Text(account['name'].toString()),
+        child: Text(
+          '${account['name']}\n\n${tr(context, 'remove_account_warning')}',
+        ),
       ),
     );
     if (confirm == true) {
@@ -1991,6 +1990,40 @@ class _AccountManagementPageState extends State<AccountManagementPage>
             padding: const EdgeInsets.all(12),
             children: [
               _DescribedSectionTitle(
+                title: tr(context, 'authenticators'),
+                description: tr(context, 'authenticators_description'),
+              ),
+              if (authenticators.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(tr(context, 'no_data')),
+                ),
+              for (var index = 0; index < authenticators.length; index++)
+                _AnimatedEntry(
+                  key: ValueKey(
+                    'authenticator-${authenticators[index]['packageName']}',
+                  ),
+                  index: index,
+                  animate: index < 8,
+                  child: Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: _AnimatedSwitchRow(
+                      leading: _packageIcon(
+                        context,
+                        authenticators[index]['icon'],
+                        fallback: Icons.extension_outlined,
+                        size: 44,
+                      ),
+                      title: _authenticatorLabel(authenticators[index]),
+                      subtitle: authenticators[index]['packageName'].toString(),
+                      value: authenticators[index]['frozen'] != true,
+                      onChanged: (enabled) =>
+                          _toggleAuthenticator(authenticators[index], enabled),
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 16),
+              _DescribedSectionTitle(
                 title: tr(context, 'accounts'),
                 description: tr(context, 'accounts_description'),
               ),
@@ -2002,7 +2035,7 @@ class _AccountManagementPageState extends State<AccountManagementPage>
               for (var index = 0; index < accounts.length; index++)
                 _AnimatedEntry(
                   key: ValueKey('account-${accounts[index]['name']}-$index'),
-                  index: index,
+                  index: authenticators.length + index,
                   animate: index < 8,
                   child: Card(
                     margin: const EdgeInsets.only(bottom: 12),
@@ -2027,45 +2060,11 @@ class _AccountManagementPageState extends State<AccountManagementPage>
                                 .colorScheme
                                 .errorContainer,
                           ),
-                          tooltip: tr(context, 'remove_account'),
+                          tooltip: tr(context, 'remove_account_tooltip'),
                           onPressed: () => _removeAccount(accounts[index]),
                           icon: const Icon(Icons.delete_outline_rounded),
                         ),
                       ),
-                    ),
-                  ),
-                ),
-              const SizedBox(height: 16),
-              _DescribedSectionTitle(
-                title: tr(context, 'authenticators'),
-                description: tr(context, 'authenticators_description'),
-              ),
-              if (authenticators.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(tr(context, 'no_data')),
-                ),
-              for (var index = 0; index < authenticators.length; index++)
-                _AnimatedEntry(
-                  key: ValueKey(
-                    'authenticator-${authenticators[index]['packageName']}',
-                  ),
-                  index: accounts.length + index,
-                  animate: index < 8,
-                  child: Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: _AnimatedSwitchRow(
-                      leading: _packageIcon(
-                        context,
-                        authenticators[index]['icon'],
-                        fallback: Icons.extension_outlined,
-                        size: 44,
-                      ),
-                      title: _authenticatorLabel(authenticators[index]),
-                      subtitle: authenticators[index]['packageName'].toString(),
-                      value: authenticators[index]['frozen'] != true,
-                      onChanged: (enabled) =>
-                          _toggleAuthenticator(authenticators[index], enabled),
                     ),
                   ),
                 ),
@@ -2365,7 +2364,16 @@ class _ActivationPageState extends State<ActivationPage> {
               child: Text(tr(context, 'confirm')),
             ),
           ],
-          child: Text(tr(context, 'activation_warning')),
+          child: Text(
+            tr(
+              context,
+              _mode == 'dhizuku'
+                  ? 'activation_warning_dhizuku'
+                  : _ownerType == 'profile'
+                  ? 'activation_warning_shizuku_profile'
+                  : 'activation_warning_shizuku_device',
+            ),
+          ),
         ),
       );
     } catch (error) {
@@ -2475,9 +2483,6 @@ class _ActivationPageState extends State<ActivationPage> {
         final accountsRemain =
             normalized.contains('already some accounts') ||
             normalized.contains('accounts on the device');
-        final shortDetails = details.length > 220
-            ? '${details.substring(0, 220)}…'
-            : details;
         final action = await showDhizukuDialog<String>(
           context,
           (dialogContext) => prism.AlertDialog(
@@ -2487,6 +2492,11 @@ class _ActivationPageState extends State<ActivationPage> {
                 onPressed: () => Navigator.pop(dialogContext, 'close'),
                 child: Text(tr(dialogContext, 'cancel')),
               ),
+              if (accountsRemain)
+                DhizukuTextButton(
+                  onPressed: () => Navigator.pop(dialogContext, 'accounts'),
+                  child: Text(tr(dialogContext, 'guide_open_accounts')),
+                ),
               DhizukuTextButton(
                 onPressed: () => Navigator.pop(dialogContext, 'guide'),
                 child: Text(tr(dialogContext, 'user_guide')),
@@ -2501,30 +2511,39 @@ class _ActivationPageState extends State<ActivationPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  tr(
-                    dialogContext,
-                    accountsRemain
-                        ? 'activation_accounts_blocked'
-                        : 'activation_troubleshoot',
-                  ),
+                  accountsRemain
+                      ? tr(dialogContext, 'activation_accounts_blocked')
+                      : tr(
+                          dialogContext,
+                          _mode == 'dhizuku'
+                              ? 'activation_dhizuku_troubleshoot'
+                              : 'activation_shizuku_troubleshoot',
+                        ),
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  '${tr(dialogContext, 'error_details')}: $shortDetails',
-                  style: Theme.of(dialogContext).textTheme.bodySmall,
+                  tr(dialogContext, 'error_details'),
+                  style: Theme.of(dialogContext).textTheme.labelLarge,
                 ),
-                if (accountsRemain) ...[
-                  const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: FilledButton.tonalIcon(
-                      onPressed: () =>
-                          Navigator.pop(dialogContext, 'accounts'),
-                      icon: const Icon(Icons.manage_accounts_outlined),
-                      label: Text(tr(dialogContext, 'guide_open_accounts')),
+                const SizedBox(height: 6),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.sizeOf(dialogContext).height * 0.22,
+                  ),
+                  child: SingleChildScrollView(
+                    child: SelectableText(
+                      details,
+                      style: Theme.of(dialogContext).textTheme.bodySmall,
                     ),
                   ),
-                ],
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: DhizukuTextButton(
+                    onPressed: () => Navigator.pop(dialogContext, 'copy'),
+                    child: Text(tr(dialogContext, 'copy_error')),
+                  ),
+                ),
               ],
             ),
           ),
@@ -2532,25 +2551,35 @@ class _ActivationPageState extends State<ActivationPage> {
         retryAfterFailure = action == 'retry';
         openGuideAfterFailure = action == 'guide';
         openAccountsAfterFailure = action == 'accounts';
+        if (action == 'copy') {
+          await Clipboard.setData(ClipboardData(text: details));
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(tr(context, 'error_copied'))),
+            );
+          }
+        }
       }
     } finally {
       if (progressOpen && mounted) Navigator.of(context).pop();
       if (mounted) setState(() => _busy = false);
     }
     if (!mounted) return;
-    if (openGuideAfterFailure) {
-      await Navigator.of(context)
-          .push<void>(dhizukuPageRoute<void>((_) => const UserGuidePage()));
-    }
     if (openAccountsAfterFailure) {
+      final unavailableMessage = tr(context, 'system_accounts_unavailable');
       try {
         final opened = await DhizukuApi.openSystemAccountSettings();
         if (!opened && mounted) {
-          _showActionError(context, tr(context, 'system_accounts_unavailable'));
+          _showActionError(context, unavailableMessage);
         }
       } catch (error) {
         if (mounted) _showActionError(context, error);
       }
+    }
+    if (!mounted) return;
+    if (openGuideAfterFailure) {
+      await Navigator.of(context)
+          .push<void>(dhizukuPageRoute<void>((_) => const UserGuidePage()));
     }
     if (retryAfterFailure) await _activate(admins);
   }
@@ -2580,9 +2609,14 @@ class _ActivationPageState extends State<ActivationPage> {
           children: [
             _AnimatedEntry(
               index: 0,
-              child: Text(
-                tr(context, 'activation_info'),
-                style: Theme.of(context).textTheme.bodyLarge,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    tr(context, 'activation_info'),
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 20),
@@ -2670,6 +2704,21 @@ class _ActivationPageState extends State<ActivationPage> {
                       _mode = value;
                       if (_mode == 'dhizuku') _ownerType = 'device';
                     }),
+                  ),
+                  const SizedBox(height: 10),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Text(
+                      tr(
+                        context,
+                        _mode == 'dhizuku'
+                            ? 'activation_dhizuku_detail'
+                            : 'activation_shizuku_detail',
+                      ),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
                   ),
                 ],
               ),

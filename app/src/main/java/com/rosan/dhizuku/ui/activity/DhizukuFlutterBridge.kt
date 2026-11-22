@@ -420,7 +420,7 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
         val status = activateViewModel.state.status
         if (status is ActivateViewState.Status.End) status.error?.let { throw it }
         else return
-        DhizukuState.sync(activity)
+        if (mode == ActivateViewModel.Mode.Dhizuku) DhizukuState.sync(activity)
     }
 
     private fun launch(result: MethodChannel.Result, block: suspend () -> Any?) {
