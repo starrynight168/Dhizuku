@@ -10,6 +10,7 @@ import android.graphics.Canvas
 import android.net.Uri
 import android.os.Build
 import android.os.Process
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
@@ -86,6 +87,15 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
             "getAccountData" -> launch(result) { accountData(call.argument<Int>("userId") ?: error("Missing userId")) }
             "removeAccount" -> launch(result) { removeAccount(call) }
             "setAuthenticatorEnabled" -> launch(result) { setAuthenticatorEnabled(call) }
+            "openSystemAccountSettings" -> {
+                val opened = runCatching {
+                    activity.startActivity(
+                        Intent(Settings.ACTION_SYNC_SETTINGS)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }.isSuccess
+                result.success(opened)
+            }
             "getAdmins" -> launch(result) { admins() }
             "activateOwner" -> launch(result) { activateOwner(call) }
             "cancelActivation" -> {

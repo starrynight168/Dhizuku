@@ -86,6 +86,11 @@ String tr(BuildContext context, String key) {
       '这些应用提供账户服务；关闭开关会停用该用户下的对应应用。',
       'These apps provide account services. Turning one off disables it for this user.',
     ],
+    'open_system_accounts': ['打开系统账户设置', 'Open system account settings'],
+    'system_accounts_unavailable': [
+      '无法打开系统账户设置',
+      'Could not open system account settings',
+    ],
     'freeze': ['冻结', 'Freeze'],
     'unfreeze': ['解冻', 'Unfreeze'],
     'dhizuku_enabled': ['启用 Dhizuku API', 'Enable Dhizuku API'],

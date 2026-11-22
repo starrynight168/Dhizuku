@@ -9,6 +9,7 @@ import 'package:prism_ui/prism_ui.dart' as prism;
 import 'api.dart';
 import 'appearance.dart';
 import 'glyphs.dart';
+import 'press_feedback.dart';
 import 'texts.dart';
 
 Route<T> dhizukuPageRoute<T>(WidgetBuilder builder) => PageRouteBuilder<T>(
@@ -41,25 +42,51 @@ Future<T?> showDhizukuDialog<T>(
   BuildContext context,
   WidgetBuilder builder, {
   bool dismissible = true,
-}) => prism.showFloatingDialog<T>(
-  context: context,
-  child: Builder(builder: builder),
-  dismissible: dismissible,
-);
-
-Future<T?> showActivationDialog<T>(
-  BuildContext context,
-  WidgetBuilder builder, {
-  bool dismissible = true,
-}) => showDialog<T>(
-  context: context,
-  barrierColor: context.colorScheme.alertScrim,
-  barrierDismissible: dismissible,
-  builder: (dialogContext) => prism.SurfaceScope(
-    level: prism.SurfaceLevel.floatingOf(dialogContext.colorScheme),
-    child: Builder(builder: builder),
-  ),
-);
+}) {
+  final reduceMotion = MediaQuery.disableAnimationsOf(context);
+  return showGeneralDialog<T>(
+    context: context,
+    barrierColor: context.colorScheme.alertScrim,
+    barrierDismissible: dismissible,
+    barrierLabel: dismissible
+        ? MaterialLocalizations.of(context).modalBarrierDismissLabel
+        : null,
+    transitionDuration: reduceMotion
+        ? Duration.zero
+        : const Duration(milliseconds: 360),
+    pageBuilder: (dialogContext, _, _) => SafeArea(
+      child: Center(
+        child: Builder(
+          builder: (scopeContext) => prism.SurfaceScope(
+            level: prism.SurfaceLevel.floatingOf(
+              prism.Theme.of(scopeContext).colorScheme,
+            ),
+            child: Builder(builder: builder),
+          ),
+        ),
+      ),
+    ),
+    transitionBuilder: (context, animation, _, child) {
+      final motion = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeInOutCubic,
+      );
+      return FadeTransition(
+        opacity: motion,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.02),
+            end: Offset.zero,
+          ).animate(motion),
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.96, end: 1).animate(motion),
+            child: child,
+          ),
+        ),
+      );
+    },
+  );
+}
 
 Widget _packageIcon(
   BuildContext context,
@@ -91,12 +118,14 @@ Widget _packageIcon(
 class HomePage extends StatelessWidget {
   const HomePage({
     required this.data,
+    required this.active,
     required this.onRefresh,
     required this.onNavigate,
     super.key,
   });
 
   final Map<String, dynamic> data;
+  final bool active;
   final Future<void> Function() onRefresh;
   final ValueChanged<int> onNavigate;
 
@@ -177,6 +206,7 @@ class HomePage extends StatelessWidget {
               children: [
                 _AnimatedEntry(
                   index: 0,
+                  active: active,
                   child: _DashboardCard(
                     child: _StatusPanel(
                       owner: owner,
@@ -193,6 +223,7 @@ class HomePage extends StatelessWidget {
                 const SizedBox(height: 12),
                 _AnimatedEntry(
                   index: 1,
+                  active: active,
                   child: _DashboardCard(
                     padding: EdgeInsets.zero,
                     child: Column(
@@ -227,6 +258,7 @@ class HomePage extends StatelessWidget {
                         ) ...[
                           _AnimatedEntry(
                             index: index + 2,
+                            active: active,
                             child: _HomeActionCard(
                               glyph: actions[index].glyph,
                               title: actions[index].title,
@@ -257,7 +289,7 @@ class HomePage extends StatelessWidget {
       (context) => prism.AlertDialog(
         title: tr(context, 'adb_help'),
         actions: [
-          prism.TextButton(
+          DhizukuTextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(tr(context, 'confirm')),
           ),
@@ -283,11 +315,11 @@ class HomePage extends StatelessWidget {
         title: tr(context, 'deactivate'),
         destructive: true,
         actions: [
-          prism.TextButton(
+          DhizukuTextButton(
             onPressed: () => Navigator.pop(context, false),
             child: Text(tr(context, 'cancel')),
           ),
-          prism.TextButton(
+          DhizukuTextButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text(tr(context, 'confirm')),
           ),
@@ -296,8 +328,16 @@ class HomePage extends StatelessWidget {
       ),
     );
     if (confirm == true) {
-      await DhizukuApi.deactivateOwner();
-      await onRefresh();
+      try {
+        await DhizukuApi.deactivateOwner();
+        await onRefresh();
+      } catch (error) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${tr(context, 'error')}: $error')),
+          );
+        }
+      }
     }
   }
 }
@@ -440,7 +480,7 @@ class _StatusPanel extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 16),
-        prism.PressSurface(
+        DhizukuPressSurface(
           fill: owner ? colorScheme.primaryContainer : Colors.transparent,
           shape: prism.AppShape.xl,
           look: owner ? prism.PressLook.tint : prism.PressLook.none,
@@ -508,7 +548,7 @@ class _HomeActionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = prism.Theme.of(context).colorScheme;
-    return prism.PressSurface(
+    return DhizukuPressSurface(
       fill: Colors.transparent,
       shape: prism.AppShape.xl,
       onPressed: onTap,
@@ -559,16 +599,14 @@ class _InteractiveListRow extends StatelessWidget {
       minHeight: subtitle == null ? 64 : 72,
     );
 
-    Widget pressSurface({Widget? rowTrailing}) => prism.PressSurface(
+    return DhizukuPressSurface(
       fill: Colors.transparent,
       shape: prism.AppShape.xl,
       look: prism.PressLook.tint,
       onPressed: onPressed,
       childFills: true,
-      child: row(rowTrailing: rowTrailing),
+      child: row(rowTrailing: trailing),
     );
-
-    return pressSurface(rowTrailing: trailing);
   }
 }
 
@@ -594,53 +632,52 @@ class _AnimatedSwitchRow extends StatelessWidget {
     padding: const EdgeInsets.symmetric(horizontal: 16),
     child: ConstrainedBox(
       constraints: BoxConstraints(minHeight: subtitle == null ? 64 : 76),
-      child: Row(
-        children: [
-          Expanded(
-            child: prism.PressSurface(
-              fill: Colors.transparent,
-              shape: prism.AppShape.xl,
-              look: prism.PressLook.tint,
-              onPressed: enabled ? () => onChanged(!value) : null,
-              childFills: true,
-              child: Row(
+      child: DhizukuPressSurface(
+        fill: Colors.transparent,
+        shape: prism.AppShape.xl,
+        look: prism.PressLook.tint,
+        onPressed: enabled ? () => onChanged(!value) : null,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        childFills: true,
+        child: Row(
+          children: [
+            if (leading != null) ...[leading!, const SizedBox(width: 16)],
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (leading != null) ...[leading!, const SizedBox(width: 16)],
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(title),
-                        if (subtitle != null) ...[
-                          const SizedBox(height: 3),
-                          Text(
-                            subtitle!,
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: prism.Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
-                                ),
-                          ),
-                        ],
-                      ],
+                  Text(title),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle!,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: prism.Theme.of(context)
+                            .colorScheme
+                            .onSurfaceVariant,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
-          ),
-          Switch(value: value, onChanged: enabled ? onChanged : null),
-        ],
+            Switch(value: value, onChanged: enabled ? onChanged : null),
+          ],
+        ),
       ),
     ),
   );
 }
 
 class AppManagementPage extends StatefulWidget {
-  const AppManagementPage({required this.onError, super.key});
+  const AppManagementPage({
+    required this.active,
+    required this.onError,
+    super.key,
+  });
 
+  final bool active;
   final void Function(Object error) onError;
 
   @override
@@ -692,12 +729,16 @@ class _AppManagementPageState extends State<AppManagementPage> {
           }).toList();
           return Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: SearchBar(
-                  leading: const Icon(Icons.search),
-                  hintText: tr(context, 'search'),
-                  onChanged: (value) => setState(() => _query = value),
+              _AnimatedEntry(
+                index: 0,
+                active: widget.active,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: SearchBar(
+                    leading: const Icon(Icons.search),
+                    hintText: tr(context, 'search'),
+                    onChanged: (value) => setState(() => _query = value),
+                  ),
                 ),
               ),
               Expanded(
@@ -714,8 +755,9 @@ class _AppManagementPageState extends State<AppManagementPage> {
                             final icon = app['icon'];
                             return _AnimatedEntry(
                               key: ValueKey(app['packageName']),
-                              index: index,
-                              animate: false,
+                              index: index + 1,
+                              active: widget.active,
+                              animate: index < 8,
                               child: Card(
                                 margin: const EdgeInsets.only(bottom: 12),
                                 child: Column(
@@ -793,8 +835,13 @@ class _AppManagementPageState extends State<AppManagementPage> {
 }
 
 class UserManagementPage extends StatefulWidget {
-  const UserManagementPage({required this.onError, super.key});
+  const UserManagementPage({
+    required this.active,
+    required this.onError,
+    super.key,
+  });
 
+  final bool active;
   final void Function(Object error) onError;
 
   @override
@@ -806,86 +853,6 @@ class _UserManagementPageState extends State<UserManagementPage> {
 
   void _reload() => setState(() => _users = DhizukuApi.getUsers());
 
-  Future<void> _showUserActions(Map<String, dynamic> user) async {
-    final remove = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        final colors = Theme.of(context).colorScheme;
-        return Material(
-          color: colors.surfaceContainerLow,
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 32,
-                    height: 4,
-                    decoration: ShapeDecoration(
-                      color: colors.onSurfaceVariant.withValues(alpha: 0.4),
-                      shape: prism.AppShape.full,
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(4, 12, 0, 12),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            user['name'].toString(),
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.pop(context),
-                          icon: const Icon(Icons.close_rounded),
-                        ),
-                      ],
-                    ),
-                  ),
-                  prism.PressSurface(
-                    fill: colors.errorContainer,
-                    shape: prism.AppShape.xl,
-                    look: prism.PressLook.tint,
-                    onPressed: () => Navigator.pop(context, true),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.delete_outline_rounded,
-                          color: colors.onErrorContainer,
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          tr(context, 'remove_user_action'),
-                          style: Theme.of(context).textTheme.labelLarge
-                              ?.copyWith(color: colors.onErrorContainer),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-    if (remove == true && mounted) await _remove(user);
-  }
-
   Future<void> _remove(Map<String, dynamic> user) async {
     final failedMessage = tr(context, 'operation_failed');
     final confirm = await showDhizukuDialog<bool>(
@@ -894,11 +861,11 @@ class _UserManagementPageState extends State<UserManagementPage> {
         title: tr(context, 'remove_user'),
         destructive: true,
         actions: [
-          prism.TextButton(
+          DhizukuTextButton(
             onPressed: () => Navigator.pop(context, false),
             child: Text(tr(context, 'cancel')),
           ),
-          prism.TextButton(
+          DhizukuTextButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text(tr(context, 'remove')),
           ),
@@ -942,6 +909,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
                   children: [
                     _AnimatedEntry(
                       index: 0,
+                      active: widget.active,
                       child: Card(
                         child: Padding(
                           padding: const EdgeInsets.all(18),
@@ -1044,70 +1012,88 @@ class _UserManagementPageState extends State<UserManagementPage> {
     return _AnimatedEntry(
       key: ValueKey(id),
       index: index + 1,
-      animate: false,
+      active: widget.active,
+      animate: index < 8,
       child: Padding(
         padding: const EdgeInsets.only(bottom: 10),
         child: Card(
-          child: _InteractiveListRow(
-            leading: CircleAvatar(
-              backgroundColor: current
-                  ? Theme.of(context).colorScheme.primaryContainer
-                  : Theme.of(context).colorScheme.surfaceContainerHighest,
-              foregroundColor: current
-                  ? Theme.of(context).colorScheme.onPrimaryContainer
-                  : Theme.of(context).colorScheme.onSurfaceVariant,
-              child: const Icon(Icons.person_outline_rounded),
-            ),
-            title: Text(user['name'].toString()),
-            subtitle: Text(
-              tr(context, 'user_id').replaceAll('{id}', id.toString()),
-            ),
-            onPressed: () => Navigator.of(context).push(
-              dhizukuPageRoute<void>((_) => AccountManagementPage(user: user)),
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (current)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 9,
-                      vertical: 5,
-                    ),
-                    decoration: ShapeDecoration(
-                      color: Theme.of(context).colorScheme.secondaryContainer,
-                      shape: prism.AppShape.full,
-                    ),
-                    child: Text(
-                      tr(context, 'current_user'),
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSecondaryContainer,
-                      ),
+          child: Row(
+            children: [
+              Expanded(
+                child: _InteractiveListRow(
+                  leading: CircleAvatar(
+                    backgroundColor: current
+                        ? Theme.of(context).colorScheme.primaryContainer
+                        : Theme.of(context).colorScheme.surfaceContainerHighest,
+                    foregroundColor: current
+                        ? Theme.of(context).colorScheme.onPrimaryContainer
+                        : Theme.of(context).colorScheme.onSurfaceVariant,
+                    child: const Icon(Icons.person_outline_rounded),
+                  ),
+                  title: Text(user['name'].toString()),
+                  subtitle: Text(
+                    tr(context, 'user_id').replaceAll('{id}', id.toString()),
+                  ),
+                  onPressed: () => Navigator.of(context).push(
+                    dhizukuPageRoute<void>(
+                      (_) => AccountManagementPage(user: user),
                     ),
                   ),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (current)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 9,
+                            vertical: 5,
+                          ),
+                          decoration: ShapeDecoration(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .secondaryContainer,
+                            shape: prism.AppShape.full,
+                          ),
+                          child: Text(
+                            tr(context, 'current_user'),
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSecondaryContainer,
+                                ),
+                          ),
+                        ),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ],
+                  ),
                 ),
-                if (!current)
-                  Tooltip(
-                    message: tr(context, 'more_options'),
-                    child: prism.PressSurface(
+              ),
+              if (!current)
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(end: 8),
+                  child: Tooltip(
+                    message: tr(context, 'remove_user_action'),
+                    child: DhizukuPressSurface(
                       fill: Colors.transparent,
                       shape: prism.AppShape.full,
                       look: prism.PressLook.tint,
-                      onPressed: () => _showUserActions(user),
-                      padding: const EdgeInsets.all(10),
+                      onPressed: () => _remove(user),
+                      minimum: const BoxConstraints.tightFor(
+                        width: 48,
+                        height: 48,
+                      ),
                       child: Icon(
                         Icons.more_vert_rounded,
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
         ),
       ),
@@ -1119,12 +1105,14 @@ class SettingsPage extends StatelessWidget {
   const SettingsPage({
     required this.settings,
     required this.appearance,
+    required this.active,
     required this.onChanged,
     super.key,
   });
 
   final Map<String, dynamic> settings;
   final AppearanceSettings appearance;
+  final bool active;
   final ValueChanged<Map<String, dynamic>> onChanged;
 
   Future<void> _toggle(BuildContext context, String key, bool value) async {
@@ -1141,6 +1129,7 @@ class SettingsPage extends StatelessWidget {
     children: [
       _AnimatedEntry(
         index: 0,
+        active: active,
         child: Card(
           child: _InteractiveListRow(
             leading: const Icon(Icons.palette_outlined),
@@ -1159,6 +1148,7 @@ class SettingsPage extends StatelessWidget {
       _SectionTitle(tr(context, 'preferences_group')),
       _AnimatedEntry(
         index: 1,
+        active: active,
         child: Card(
           child: Column(
             children: [
@@ -1189,6 +1179,7 @@ class SettingsPage extends StatelessWidget {
       _SectionTitle(tr(context, 'about_group')),
       _AnimatedEntry(
         index: 2,
+        active: active,
         child: Card(
           child: Column(
             children: [
@@ -1307,6 +1298,9 @@ class _AppearanceSettingsCard extends StatelessWidget {
       (label: 'theme_rose', color: 0xffb3265e, system: false),
     ];
     return Card(
+      shape: prism.AppShape.xxl.copyWith(
+        side: BorderSide(color: colors.outlineVariant.withValues(alpha: 0.7)),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -1378,7 +1372,7 @@ class _AppearanceSettingsCard extends StatelessWidget {
             _SectionTitle(tr(context, 'theme_mode')),
             SizedBox(
               width: double.infinity,
-              child: prism.SegmentedControl<ThemeMode>(
+              child: _ThemeSegmentedControl<ThemeMode>(
                 segments: [
                   (ThemeMode.system, tr(context, 'theme_system')),
                   (ThemeMode.light, tr(context, 'theme_light')),
@@ -1425,7 +1419,7 @@ class _AppearanceSettingsCard extends StatelessWidget {
             _SectionTitle(tr(context, 'theme_color_style')),
             SizedBox(
               width: double.infinity,
-              child: prism.SegmentedControl<String>(
+              child: _ThemeSegmentedControl<String>(
                 segments: [
                   for (final style in prism.ColorStyle.values)
                     (style.name, tr(context, 'style_${style.name}')),
@@ -1438,6 +1432,100 @@ class _AppearanceSettingsCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ThemeSegmentedControl<T> extends StatelessWidget {
+  const _ThemeSegmentedControl({
+    required this.segments,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final List<(T, String)> segments;
+  final T value;
+  final ValueChanged<T> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final count = segments.length;
+    final index = segments.indexWhere((segment) => segment.$1 == value);
+    return Container(
+      height: 52,
+      padding: const EdgeInsets.all(4),
+      decoration: ShapeDecoration(
+        color: colors.surfaceContainerHigh,
+        shape: prism.AppShape.full.copyWith(
+          side: BorderSide(color: colors.outlineVariant),
+        ),
+      ),
+      child: Stack(
+        children: [
+          if (index >= 0)
+            AnimatedAlign(
+              duration: const Duration(milliseconds: 420),
+              curve: Curves.easeOutBack,
+              alignment: AlignmentDirectional(
+                count == 1 ? 0 : index * 2 / (count - 1) - 1,
+                0,
+              ),
+              child: FractionallySizedBox(
+                widthFactor: 1 / count,
+                heightFactor: 1,
+                child: DecoratedBox(
+                  decoration: ShapeDecoration(
+                    color: colors.primary,
+                    shape: prism.AppShape.full,
+                  ),
+                ),
+              ),
+            ),
+          Row(
+            children: [
+              for (final (option, label) in segments)
+                Expanded(
+                  child: Builder(
+                    builder: (context) {
+                      final selected = option == value;
+                      return DhizukuPressSurface(
+                        fill: Colors.transparent,
+                        shape: prism.AppShape.full,
+                        look: selected
+                            ? prism.PressLook.none
+                            : prism.PressLook.tint,
+                        childFills: true,
+                        onPressed: selected ? null : () => onChanged(option),
+                        child: Center(
+                          child: AnimatedDefaultTextStyle(
+                            duration: const Duration(milliseconds: 200),
+                            style:
+                                (Theme.of(context).textTheme.labelLarge ??
+                                        const TextStyle())
+                                    .copyWith(
+                                      color: selected
+                                          ? colors.onPrimary
+                                          : colors.onSurfaceVariant,
+                                      fontWeight: selected
+                                          ? FontWeight.w600
+                                          : FontWeight.w500,
+                                    ),
+                            child: Text(
+                              label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -1463,7 +1551,7 @@ class _ThemeColorButton extends StatelessWidget {
     width: 62,
     child: Column(
       children: [
-        prism.PressSurface(
+        DhizukuPressSurface(
           fill: selected
               ? Theme.of(context).colorScheme.secondaryContainer
               : Colors.transparent,
@@ -1577,11 +1665,11 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
         title: tr(context, 'remove_account'),
         destructive: true,
         actions: [
-          prism.TextButton(
+          DhizukuTextButton(
             onPressed: () => Navigator.pop(context, false),
             child: Text(tr(context, 'cancel')),
           ),
-          prism.TextButton(
+          DhizukuTextButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text(tr(context, 'remove')),
           ),
@@ -1605,7 +1693,28 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(widget.user['name'].toString())),
+    appBar: AppBar(
+      title: Text(widget.user['name'].toString()),
+      actions: [
+        DhizukuIconButton(
+          tooltip: tr(context, 'open_system_accounts'),
+          onPressed: () async {
+            try {
+              final opened = await DhizukuApi.openSystemAccountSettings();
+              if (!opened && context.mounted) {
+                _showActionError(
+                  context,
+                  tr(context, 'system_accounts_unavailable'),
+                );
+              }
+            } catch (error) {
+              if (context.mounted) _showActionError(context, error);
+            }
+          },
+          icon: const Icon(Icons.settings_outlined),
+        ),
+      ],
+    ),
     body: FutureBuilder<Map<String, dynamic>>(
       future: _data,
       builder: (context, snapshot) {
@@ -1637,7 +1746,7 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
                 _AnimatedEntry(
                   key: ValueKey('account-${accounts[index]['name']}-$index'),
                   index: index,
-                  animate: false,
+                  animate: index < 8,
                   child: Card(
                     margin: const EdgeInsets.only(bottom: 12),
                     child: _InteractiveListRow(
@@ -1649,18 +1758,22 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
                       ),
                       title: Text(accounts[index]['name'].toString()),
                       subtitle: Text(_accountProviderLabel(accounts[index])),
-                      trailing: IconButton.filledTonal(
-                        style: IconButton.styleFrom(
-                          fixedSize: const Size(52, 40),
-                          shape: const StadiumBorder(),
-                          foregroundColor: Theme.of(context).colorScheme.error,
-                          backgroundColor: Theme.of(context)
-                              .colorScheme
-                              .errorContainer,
+                      trailing: DhizukuPressFeedback(
+                        child: IconButton.filledTonal(
+                          style: IconButton.styleFrom(
+                            fixedSize: const Size(52, 40),
+                            shape: const StadiumBorder(),
+                            foregroundColor: Theme.of(context)
+                                .colorScheme
+                                .error,
+                            backgroundColor: Theme.of(context)
+                                .colorScheme
+                                .errorContainer,
+                          ),
+                          tooltip: tr(context, 'remove_account'),
+                          onPressed: () => _removeAccount(accounts[index]),
+                          icon: const Icon(Icons.delete_outline_rounded),
                         ),
-                        tooltip: tr(context, 'remove_account'),
-                        onPressed: () => _removeAccount(accounts[index]),
-                        icon: const Icon(Icons.delete_outline_rounded),
                       ),
                     ),
                   ),
@@ -1681,7 +1794,7 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
                     'authenticator-${authenticators[index]['packageName']}',
                   ),
                   index: accounts.length + index,
-                  animate: false,
+                  animate: index < 8,
                   child: Card(
                     margin: const EdgeInsets.only(bottom: 12),
                     child: _AnimatedSwitchRow(
@@ -1788,7 +1901,7 @@ class _ActivationChoiceCardsState<T> extends State<_ActivationChoiceCards<T>>
                             ]
                           : const [],
                     ),
-                    child: prism.PressSurface(
+                    child: DhizukuPressSurface(
                       fill: Colors.transparent,
                       shape: prism.AppShape.xl,
                       look: selected
@@ -1920,6 +2033,14 @@ class _ActivationPageState extends State<ActivationPage> {
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
+      sheetAnimationStyle: MediaQuery.disableAnimationsOf(context)
+          ? AnimationStyle.noAnimation
+          : const AnimationStyle(
+              duration: Duration(milliseconds: 360),
+              reverseDuration: Duration(milliseconds: 300),
+              curve: Curves.easeInOutCubic,
+              reverseCurve: Curves.easeInOutCubic,
+            ),
       builder: (context) =>
           _AdminPickerSheet(admins: admins, selectedKey: selectedKey),
     );
@@ -1933,7 +2054,7 @@ class _ActivationPageState extends State<ActivationPage> {
       setState(() => _ownerType = value);
       return;
     }
-    final confirmed = await showActivationDialog<bool>(
+    final confirmed = await showDhizukuDialog<bool>(
       context,
       (context) => prism.AlertDialog(
         title: tr(context, 'profile_owner_warning_title'),
@@ -1942,11 +2063,11 @@ class _ActivationPageState extends State<ActivationPage> {
           color: Theme.of(context).colorScheme.tertiary,
         ),
         actions: [
-          prism.TextButton(
+          DhizukuTextButton(
             onPressed: () => Navigator.pop(context, false),
             child: Text(tr(context, 'cancel')),
           ),
-          prism.TextButton(
+          DhizukuTextButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text(tr(context, 'confirm')),
           ),
@@ -1963,9 +2084,8 @@ class _ActivationPageState extends State<ActivationPage> {
     if (_busy) return;
     final selectedKey = _currentAdminKey(admins);
     if (selectedKey == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(tr(context, 'no_admins'))),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(tr(context, 'no_admins'))));
       return;
     }
     final selected = admins.firstWhere(
@@ -1974,16 +2094,16 @@ class _ActivationPageState extends State<ActivationPage> {
     setState(() => _busy = true);
     bool? confirmed;
     try {
-      confirmed = await showActivationDialog<bool>(
+      confirmed = await showDhizukuDialog<bool>(
         context,
         (context) => prism.AlertDialog(
           title: tr(context, 'activate'),
           actions: [
-            prism.TextButton(
+            DhizukuTextButton(
               onPressed: () => Navigator.pop(context, false),
               child: Text(tr(context, 'cancel')),
             ),
-            prism.TextButton(
+            DhizukuTextButton(
               onPressed: () => Navigator.pop(context, true),
               child: Text(tr(context, 'confirm')),
             ),
@@ -2008,14 +2128,14 @@ class _ActivationPageState extends State<ActivationPage> {
     var cancelRequested = false;
     var progressOpen = true;
     unawaited(
-      showActivationDialog<void>(
+      showDhizukuDialog<void>(
         context,
         (dialogContext) => PopScope(
           canPop: false,
           child: prism.AlertDialog(
             title: tr(dialogContext, 'activate'),
             actions: [
-              prism.TextButton(
+              DhizukuTextButton(
                 onPressed: () async {
                   if (cancelRequested) return;
                   cancelRequested = true;
@@ -2065,12 +2185,12 @@ class _ActivationPageState extends State<ActivationPage> {
         return;
       }
       if (!mounted) return;
-      await showActivationDialog<void>(
+      await showDhizukuDialog<void>(
         context,
         (dialogContext) => prism.AlertDialog(
           title: tr(dialogContext, 'activated'),
           actions: [
-            prism.TextButton(
+            DhizukuTextButton(
               onPressed: () => Navigator.pop(dialogContext),
               child: Text(tr(dialogContext, 'finish')),
             ),
@@ -2228,22 +2348,25 @@ class _ActivationPageState extends State<ActivationPage> {
             const SizedBox(height: 20),
             _AnimatedEntry(
               index: 4,
-              child: FilledButton.icon(
-                onPressed: _busy ? null : () => _activate(admins),
-                style: const ButtonStyle(
-                  shape: WidgetStatePropertyAll(StadiumBorder()),
+              child: DhizukuPressFeedback(
+                enabled: !_busy,
+                child: FilledButton.icon(
+                  onPressed: _busy ? null : () => _activate(admins),
+                  style: const ButtonStyle(
+                    shape: WidgetStatePropertyAll(StadiumBorder()),
+                  ),
+                  icon: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    child: _busy
+                        ? const SizedBox.square(
+                            key: ValueKey('busy'),
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.check, key: ValueKey('ready')),
+                  ),
+                  label: Text(tr(context, 'activate')),
                 ),
-                icon: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 220),
-                  child: _busy
-                      ? const SizedBox.square(
-                          key: ValueKey('busy'),
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.check, key: ValueKey('ready')),
-                ),
-                label: Text(tr(context, 'activate')),
               ),
             ),
           ],
@@ -2293,7 +2416,7 @@ class _AdminPickerSheet extends StatelessWidget {
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                     ),
-                    IconButton(
+                    DhizukuIconButton(
                       tooltip: tr(context, 'cancel'),
                       onPressed: () => Navigator.pop(context),
                       icon: const Icon(Icons.close_rounded),
@@ -2310,39 +2433,43 @@ class _AdminPickerSheet extends StatelessWidget {
                     final admin = admins[index];
                     final key = '${admin['packageName']}/${admin['className']}';
                     final selected = key == selectedKey;
-                    return prism.PressSurface(
-                      fill: selected
-                          ? colors.secondaryContainer
-                          : Colors.transparent,
-                      shape: prism.AppShape.xl,
-                      look: prism.PressLook.tint,
-                      onPressed: () => Navigator.pop(context, key),
-                      childFills: true,
-                      child: prism.ListRow(
-                        leading: _packageIcon(
-                          context,
-                          admin['icon'],
-                          fallback: Icons.admin_panel_settings_outlined,
-                          size: 44,
+                    return _AnimatedEntry(
+                      index: index,
+                      animate: index < 8,
+                      child: DhizukuPressSurface(
+                        fill: selected
+                            ? colors.secondaryContainer
+                            : Colors.transparent,
+                        shape: prism.AppShape.xl,
+                        look: prism.PressLook.tint,
+                        onPressed: () => Navigator.pop(context, key),
+                        childFills: true,
+                        child: prism.ListRow(
+                          leading: _packageIcon(
+                            context,
+                            admin['icon'],
+                            fallback: Icons.admin_panel_settings_outlined,
+                            size: 44,
+                          ),
+                          title: Text(
+                            admin['label'].toString(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            admin['packageName'].toString(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: selected
+                              ? Icon(
+                                  Icons.check_rounded,
+                                  color: colors.onSecondaryContainer,
+                                )
+                              : null,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          minHeight: 72,
                         ),
-                        title: Text(
-                          admin['label'].toString(),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: Text(
-                          admin['packageName'].toString(),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        trailing: selected
-                            ? Icon(
-                                Icons.check_rounded,
-                                color: colors.onSecondaryContainer,
-                              )
-                            : null,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        minHeight: 72,
                       ),
                     );
                   },
@@ -2475,17 +2602,25 @@ class _PermissionRequestPageState extends State<PermissionRequestPage> {
                       const SizedBox(height: 24),
                       SizedBox(
                         width: double.infinity,
-                        child: FilledButton(
-                          onPressed: _responded ? null : () => _respond(true),
-                          child: Text(tr(context, 'allow')),
+                        child: DhizukuPressFeedback(
+                          enabled: !_responded,
+                          child: FilledButton(
+                            onPressed: _responded ? null : () => _respond(true),
+                            child: Text(tr(context, 'allow')),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 8),
                       SizedBox(
                         width: double.infinity,
-                        child: FilledButton.tonal(
-                          onPressed: _responded ? null : () => _respond(false),
-                          child: Text(tr(context, 'deny')),
+                        child: DhizukuPressFeedback(
+                          enabled: !_responded,
+                          child: FilledButton.tonal(
+                            onPressed: _responded
+                                ? null
+                                : () => _respond(false),
+                            child: Text(tr(context, 'deny')),
+                          ),
                         ),
                       ),
                     ],
@@ -2505,12 +2640,14 @@ class _AnimatedEntry extends StatefulWidget {
     required this.index,
     required this.child,
     this.animate = true,
+    this.active = true,
     super.key,
   });
 
   final int index;
   final Widget child;
   final bool animate;
+  final bool active;
 
   @override
   State<_AnimatedEntry> createState() => _AnimatedEntryState();
@@ -2523,9 +2660,26 @@ class _AnimatedEntryState extends State<_AnimatedEntry> {
   @override
   void initState() {
     super.initState();
+    if (widget.active) _scheduleEntry();
+  }
+
+  void _scheduleEntry() {
     _timer = Timer(Duration(milliseconds: widget.index.clamp(0, 8) * 32), () {
       if (mounted) setState(() => _visible = true);
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant _AnimatedEntry oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.active && widget.active) {
+      _timer?.cancel();
+      _visible = false;
+      _scheduleEntry();
+    } else if (oldWidget.active && !widget.active) {
+      _timer?.cancel();
+      _visible = true;
+    }
   }
 
   @override

@@ -70,6 +70,9 @@ class DhizukuApi {
   static Future<bool> removeAccount(Map<String, dynamic> account) async =>
       await _channel.invokeMethod<bool>('removeAccount', account) ?? false;
 
+  static Future<bool> openSystemAccountSettings() async =>
+      await _channel.invokeMethod<bool>('openSystemAccountSettings') ?? false;
+
   static Future<bool> setAuthenticatorEnabled({
     required int userId,
     required String packageName,

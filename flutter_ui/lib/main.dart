@@ -8,11 +8,21 @@ import 'api.dart';
 import 'appearance.dart';
 import 'glyphs.dart';
 import 'pages.dart';
+import 'press_feedback.dart';
 import 'texts.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const DhizukuApp());
+}
+
+class _PrismColorSchemeTween extends Tween<prism.ColorScheme> {
+  _PrismColorSchemeTween(prism.ColorScheme scheme)
+    : super(begin: scheme, end: scheme);
+
+  @override
+  prism.ColorScheme lerp(double t) =>
+      prism.ColorScheme.lerp(begin!, end!, t);
 }
 
 class DhizukuApp extends StatefulWidget {
@@ -278,40 +288,49 @@ class _AgreementPageState extends State<AgreementPage> {
                       Wrap(
                         spacing: 8,
                         children: [
-                          TextButton(
-                            onPressed: () => DhizukuApi.openUrl(
-                              'https://iamr0s.github.io/Dhizuku/TERMS.html',
+                          DhizukuPressFeedback(
+                            child: TextButton(
+                              onPressed: () => DhizukuApi.openUrl(
+                                'https://iamr0s.github.io/Dhizuku/TERMS.html',
+                              ),
+                              child: Text(tr(context, 'terms')),
                             ),
-                            child: Text(tr(context, 'terms')),
                           ),
-                          TextButton(
-                            onPressed: () => DhizukuApi.openUrl(
-                              'https://iamr0s.github.io/Dhizuku/PRIVACY.html',
+                          DhizukuPressFeedback(
+                            child: TextButton(
+                              onPressed: () => DhizukuApi.openUrl(
+                                'https://iamr0s.github.io/Dhizuku/PRIVACY.html',
+                              ),
+                              child: Text(tr(context, 'privacy')),
                             ),
-                            child: Text(tr(context, 'privacy')),
                           ),
                         ],
                       ),
                       const SizedBox(height: 12),
                       SizedBox(
                         width: double.infinity,
-                        child: FilledButton(
-                          onPressed: _saving ? null : _agree,
-                          child: _saving
-                              ? const SizedBox.square(
-                                  dimension: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : Text(tr(context, 'agree')),
+                        child: DhizukuPressFeedback(
+                          enabled: !_saving,
+                          child: FilledButton(
+                            onPressed: _saving ? null : _agree,
+                            child: _saving
+                                ? const SizedBox.square(
+                                    dimension: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : Text(tr(context, 'agree')),
+                          ),
                         ),
                       ),
                       Align(
                         alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: SystemNavigator.pop,
-                          child: Text(tr(context, 'cancel')),
+                        child: DhizukuPressFeedback(
+                          child: TextButton(
+                            onPressed: SystemNavigator.pop,
+                            child: Text(tr(context, 'cancel')),
+                          ),
                         ),
                       ),
                     ],
@@ -379,7 +398,10 @@ class _DhizukuShellState extends State<DhizukuShell> {
 
   void _selectPage(int index) {
     if (index < 0 || index >= 4) return;
-    if (_selected != index) setState(() => _selected = index);
+    if (_selected != index) {
+      _lastBackPress = null;
+      setState(() => _selected = index);
+    }
     if (!_pageController.hasClients) return;
     if (_pageController.page?.round() == index) return;
     unawaited(
@@ -399,13 +421,27 @@ class _DhizukuShellState extends State<DhizukuShell> {
       return;
     }
     _lastBackPress = now;
-    if (_selected != 0) _selectPage(0);
+    final wide = MediaQuery.sizeOf(context).width >= 720;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
           content: Text(tr(context, 'press_back_again_to_exit')),
           duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.fromLTRB(
+            16,
+            0,
+            16,
+            wide ? 16 : prism.NavigationDock.insetOf(context) + 16,
+          ),
+          action: SnackBarAction(
+            label: tr(context, 'cancel'),
+            onPressed: () {
+              _lastBackPress = null;
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            },
+          ),
         ),
       );
   }
@@ -432,17 +468,34 @@ class _DhizukuShellState extends State<DhizukuShell> {
       DhizukuGlyphs.settings,
     ];
     final pages = [
-      HomePage(data: _homeData, onRefresh: _refresh, onNavigate: _selectPage),
-      AppManagementPage(onError: (error) => _showError(error)),
-      UserManagementPage(onError: (error) => _showError(error)),
+      HomePage(
+        data: _homeData,
+        active: _selected == 0,
+        onRefresh: _refresh,
+        onNavigate: _selectPage,
+      ),
+      AppManagementPage(
+        active: _selected == 1,
+        onError: (error) => _showError(error),
+      ),
+      UserManagementPage(
+        active: _selected == 2,
+        onError: (error) => _showError(error),
+      ),
       SettingsPage(
         settings: _settings,
         appearance: widget.appearance,
+        active: _selected == 3,
         onChanged: (value) => setState(() => _settings = value),
       ),
     ];
     final wide = MediaQuery.sizeOf(context).width >= 720;
     final title = tr(context, labels[_selected]);
+    final prismScheme = prism.seededColorScheme(
+      seedColor: widget.appearance.activeSeedColor,
+      brightness: Theme.of(context).brightness,
+      style: _colorStyle,
+    );
     final scaffold = Scaffold(
       extendBody: !wide,
       appBar: AppBar(
@@ -466,13 +519,13 @@ class _DhizukuShellState extends State<DhizukuShell> {
         ),
         actions: [
           if (_selected == 0 && _settings['donateButtonHidden'] != true)
-            IconButton(
+            DhizukuIconButton(
               tooltip: tr(context, 'donate'),
               onPressed: () => DhizukuApi.openUrl(tr(context, 'donation_url')),
               icon: const Icon(Icons.favorite_outline),
             ),
           if (_selected == 0)
-            IconButton(
+            DhizukuIconButton(
               tooltip: tr(context, 'shutdown'),
               onPressed: _confirmShutdown,
               icon: const Icon(Icons.power_settings_new),
@@ -497,13 +550,13 @@ class _DhizukuShellState extends State<DhizukuShell> {
             const VerticalDivider(width: 1),
           ],
           Expanded(
-            child: prism.Theme(
-              data: prism.ThemeData(
-                colorScheme: prism.seededColorScheme(
-                  seedColor: widget.appearance.activeSeedColor,
-                  brightness: Theme.of(context).brightness,
-                  style: _colorStyle,
-                ),
+            child: TweenAnimationBuilder<prism.ColorScheme>(
+              tween: _PrismColorSchemeTween(prismScheme),
+              duration: const Duration(milliseconds: 420),
+              curve: Curves.easeInOutCubic,
+              builder: (context, colorScheme, child) => prism.Theme(
+                data: prism.ThemeData(colorScheme: colorScheme),
+                child: child!,
               ),
               child: prism.Surface(
                 child: Stack(
@@ -581,11 +634,11 @@ class _DhizukuShellState extends State<DhizukuShell> {
         title: tr(context, 'shutdown'),
         destructive: true,
         actions: [
-          prism.TextButton(
+          DhizukuTextButton(
             onPressed: () => Navigator.pop(context, false),
             child: Text(tr(context, 'cancel')),
           ),
-          prism.TextButton(
+          DhizukuTextButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text(tr(context, 'confirm')),
           ),
@@ -593,7 +646,13 @@ class _DhizukuShellState extends State<DhizukuShell> {
         child: Text(tr(context, 'home_shutdown_dsp')),
       ),
     );
-    if (confirm == true) await DhizukuApi.shutdown();
+    if (confirm == true) {
+      try {
+        await DhizukuApi.shutdown();
+      } catch (error) {
+        if (mounted) _showError(error);
+      }
+    }
   }
 }
 
