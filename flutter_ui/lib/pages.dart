@@ -2215,8 +2215,8 @@ class _ThemeColorSelector extends StatelessWidget {
               child: Stack(
                 children: [
                   AnimatedAlign(
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeOutCubic,
+                    duration: const Duration(milliseconds: 420),
+                    curve: Curves.easeOutBack,
                     alignment: AlignmentDirectional(
                       count == 1 ? 0 : selected * 2 / (count - 1) - 1,
                       0,
