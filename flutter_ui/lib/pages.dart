@@ -492,6 +492,7 @@ class _InteractiveListRow extends StatelessWidget {
     Widget pressSurface({Widget? rowTrailing}) => prism.PressSurface(
       fill: Colors.transparent,
       shape: prism.AppShape.xl,
+      look: prism.PressLook.tint,
       onPressed: onPressed,
       childFills: true,
       child: row(rowTrailing: rowTrailing),
@@ -529,6 +530,7 @@ class _AnimatedSwitchRow extends StatelessWidget {
             child: prism.PressSurface(
               fill: Colors.transparent,
               shape: prism.AppShape.xl,
+              look: prism.PressLook.tint,
               onPressed: enabled ? () => onChanged(!value) : null,
               childFills: true,
               child: Row(
@@ -578,15 +580,27 @@ class AppManagementPage extends StatefulWidget {
 class _AppManagementPageState extends State<AppManagementPage> {
   late Future<List<Map<String, dynamic>>> _apps = DhizukuApi.getApps();
   String _query = '';
+  final Set<String> _pendingChanges = {};
 
   void _reload() => setState(() => _apps = DhizukuApi.getApps());
 
   Future<void> _set(Map<String, dynamic> app, String key, bool value) async {
+    final operation = app['uid'].toString();
+    if (_pendingChanges.contains(operation)) return;
+    final previous = app[key] == true;
+    setState(() {
+      _pendingChanges.add(operation);
+      app[key] = value;
+    });
     try {
       await DhizukuApi.setAppPermission(app['uid'] as int, key, value);
-      _reload();
     } catch (error) {
-      widget.onError(error);
+      if (mounted) {
+        setState(() => app[key] = previous);
+        widget.onError(error);
+      }
+    } finally {
+      if (mounted) setState(() => _pendingChanges.remove(operation));
     }
   }
 
@@ -631,6 +645,7 @@ class _AppManagementPageState extends State<AppManagementPage> {
                             return _AnimatedEntry(
                               key: ValueKey(app['packageName']),
                               index: index,
+                              animate: false,
                               child: Card(
                                 margin: const EdgeInsets.only(bottom: 12),
                                 child: Column(
@@ -649,6 +664,7 @@ class _AppManagementPageState extends State<AppManagementPage> {
                                                   width: 48,
                                                   height: 48,
                                                   fit: BoxFit.cover,
+                                                  gaplessPlayback: true,
                                                   errorBuilder: (_, _, _) =>
                                                       const Icon(
                                                         Icons.android,
@@ -675,13 +691,20 @@ class _AppManagementPageState extends State<AppManagementPage> {
                                     _AnimatedSwitchRow(
                                       title: tr(context, 'api_access'),
                                       value: app['enabled'] == true && !blocked,
-                                      enabled: !blocked,
+                                      enabled:
+                                          !blocked &&
+                                          !_pendingChanges.contains(
+                                            app['uid'].toString(),
+                                          ),
                                       onChanged: (value) =>
                                           _set(app, 'enabled', value),
                                     ),
                                     _AnimatedSwitchRow(
                                       title: tr(context, 'blocked'),
                                       value: blocked,
+                                      enabled: !_pendingChanges.contains(
+                                        app['uid'].toString(),
+                                      ),
                                       onChanged: (value) =>
                                           _set(app, 'blocked', value),
                                     ),
@@ -737,7 +760,10 @@ class _UserManagementPageState extends State<UserManagementPage> {
     if (confirm != true) return;
     try {
       final removed = await DhizukuApi.removeUser(user['id'] as int);
-      if (!removed) throw StateError(failedMessage);
+      if (!removed) {
+        if (mounted) _showActionError(context, failedMessage);
+        return;
+      }
       _reload();
     } catch (error) {
       widget.onError(error);
@@ -869,6 +895,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
     return _AnimatedEntry(
       key: ValueKey(id),
       index: index + 1,
+      animate: false,
       child: Padding(
         padding: const EdgeInsets.only(bottom: 10),
         child: Card(
@@ -1447,7 +1474,10 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
     if (confirm == true) {
       try {
         final removed = await DhizukuApi.removeAccount(account);
-        if (!removed) throw StateError(failedMessage);
+        if (!removed) {
+          if (mounted) _showActionError(context, failedMessage);
+          return;
+        }
         _reload();
       } catch (error) {
         if (mounted) _showActionError(context, error);
@@ -1489,6 +1519,7 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
                 _AnimatedEntry(
                   key: ValueKey('account-${accounts[index]['name']}-$index'),
                   index: index,
+                  animate: false,
                   child: Card(
                     margin: const EdgeInsets.only(bottom: 12),
                     child: _InteractiveListRow(
@@ -1527,6 +1558,7 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
                     'authenticator-${authenticators[index]['packageName']}',
                   ),
                   index: accounts.length + index,
+                  animate: false,
                   child: Card(
                     margin: const EdgeInsets.only(bottom: 12),
                     child: _AnimatedSwitchRow(
@@ -2001,10 +2033,16 @@ class _PermissionRequestPageState extends State<PermissionRequestPage> {
 }
 
 class _AnimatedEntry extends StatefulWidget {
-  const _AnimatedEntry({required this.index, required this.child, super.key});
+  const _AnimatedEntry({
+    required this.index,
+    required this.child,
+    this.animate = true,
+    super.key,
+  });
 
   final int index;
   final Widget child;
+  final bool animate;
 
   @override
   State<_AnimatedEntry> createState() => _AnimatedEntryState();
@@ -2030,7 +2068,9 @@ class _AnimatedEntryState extends State<_AnimatedEntry> {
 
   @override
   Widget build(BuildContext context) {
-    if (MediaQuery.disableAnimationsOf(context)) return widget.child;
+    if (!widget.animate || MediaQuery.disableAnimationsOf(context)) {
+      return widget.child;
+    }
     return AnimatedOpacity(
       opacity: _visible ? 1 : 0,
       duration: const Duration(milliseconds: 300),
