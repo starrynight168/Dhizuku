@@ -1946,30 +1946,51 @@ class _ActivationPageState extends State<ActivationPage> {
   }
 
   Future<void> _activate(List<Map<String, dynamic>> admins) async {
+    if (_busy) return;
     final selectedKey = _currentAdminKey(admins);
-    if (selectedKey == null) return;
+    if (selectedKey == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(tr(context, 'no_admins'))),
+      );
+      return;
+    }
     final selected = admins.firstWhere(
       (item) => _adminKey(item) == selectedKey,
     );
-    final confirmed = await showDhizukuDialog<bool>(
-      context,
-      (context) => prism.AlertDialog(
-        title: tr(context, 'activate'),
-        actions: [
-          prism.TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(tr(context, 'cancel')),
-          ),
-          prism.TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(tr(context, 'confirm')),
-          ),
-        ],
-        child: Text(tr(context, 'activation_warning')),
-      ),
-    );
-    if (!mounted || confirmed != true) return;
     setState(() => _busy = true);
+    bool? confirmed;
+    try {
+      confirmed = await showDhizukuDialog<bool>(
+        context,
+        (context) => prism.AlertDialog(
+          title: tr(context, 'activate'),
+          actions: [
+            prism.TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(tr(context, 'cancel')),
+            ),
+            prism.TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(tr(context, 'confirm')),
+            ),
+          ],
+          child: Text(tr(context, 'activation_warning')),
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        setState(() => _busy = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${tr(context, 'error')}: $error')),
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
+    if (confirmed != true) {
+      setState(() => _busy = false);
+      return;
+    }
     var cancelRequested = false;
     var progressOpen = true;
     unawaited(
@@ -2193,8 +2214,11 @@ class _ActivationPageState extends State<ActivationPage> {
             const SizedBox(height: 20),
             _AnimatedEntry(
               index: 4,
-              child: prism.FilledButton.icon(
+              child: FilledButton.icon(
                 onPressed: _busy ? null : () => _activate(admins),
+                style: const ButtonStyle(
+                  shape: WidgetStatePropertyAll(StadiumBorder()),
+                ),
                 icon: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 220),
                   child: _busy
