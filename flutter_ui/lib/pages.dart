@@ -1386,34 +1386,33 @@ class _AppearanceSettingsCard extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             _SectionTitle(tr(context, 'theme_color')),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (final option in colorOptions)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: _ThemeColorButton(
-                        label: tr(context, option.label),
-                        color: Color(option.color),
-                        selected: option.system
-                            ? appearance.useSystemColor
-                            : !appearance.useSystemColor &&
-                                  appearance.seedColor == option.color,
-                        icon: option.system ? Icons.auto_awesome_rounded : null,
-                        onPressed: () => unawaited(
-                          _update(
-                            context,
-                            () => appearance.update(
-                              useSystemColor: option.system,
-                              seedColor: option.color,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
+            _ThemeColorSelector(
+              options: [
+                for (final option in colorOptions)
+                  (
+                    label: tr(context, option.label),
+                    color: Color(option.color),
+                    icon: option.system ? Icons.auto_awesome_rounded : null,
+                  ),
+              ],
+              selectedIndex: colorOptions.indexWhere(
+                (option) => option.system
+                    ? appearance.useSystemColor
+                    : !appearance.useSystemColor &&
+                          appearance.seedColor == option.color,
               ),
+              onSelected: (index) {
+                final option = colorOptions[index];
+                unawaited(
+                  _update(
+                    context,
+                    () => appearance.update(
+                      useSystemColor: option.system,
+                      seedColor: option.color,
+                    ),
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 16),
             _SectionTitle(tr(context, 'theme_color_style')),
@@ -1531,82 +1530,160 @@ class _ThemeSegmentedControl<T> extends StatelessWidget {
   }
 }
 
-class _ThemeColorButton extends StatelessWidget {
-  const _ThemeColorButton({
-    required this.label,
-    required this.color,
-    required this.selected,
-    required this.onPressed,
-    this.icon,
+class _ThemeColorSelector extends StatelessWidget {
+  const _ThemeColorSelector({
+    required this.options,
+    required this.selectedIndex,
+    required this.onSelected,
   });
 
-  final String label;
-  final Color color;
-  final bool selected;
-  final VoidCallback onPressed;
-  final IconData? icon;
+  final List<({String label, Color color, IconData? icon})> options;
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    width: 62,
-    child: Column(
-      children: [
-        DhizukuPressSurface(
-          fill: selected
-              ? Theme.of(context).colorScheme.secondaryContainer
-              : Colors.transparent,
-          shape: prism.AppShape.xl,
-          onPressed: onPressed,
-          minimum: const BoxConstraints.tightFor(width: 58, height: 54),
-          child: Center(
-            child: AnimatedScale(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOutBack,
-              scale: selected ? 1 : 0.88,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 240),
-                width: 30,
-                height: 30,
-                decoration: ShapeDecoration(
-                  color: color,
-                  shape: prism.AppShape.circle.copyWith(
-                    side: BorderSide(
-                      color: selected
-                          ? Theme.of(context).colorScheme.onSurface
-                          : Colors.transparent,
-                      width: 2,
+  Widget build(BuildContext context) {
+    if (options.isEmpty) return const SizedBox.shrink();
+    final colors = Theme.of(context).colorScheme;
+    final count = options.length;
+    final selected = selectedIndex.clamp(0, count - 1);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final minContentWidth = count * 76.0;
+        final contentWidth = constraints.maxWidth > minContentWidth
+            ? constraints.maxWidth
+            : minContentWidth;
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(
+            width: contentWidth,
+            height: 88,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: ShapeDecoration(
+                color: colors.surfaceContainerHigh,
+                shape: prism.AppShape.full.copyWith(
+                  side: BorderSide(color: colors.outlineVariant),
+                ),
+              ),
+              child: Stack(
+                children: [
+                  AnimatedAlign(
+                    duration: const Duration(milliseconds: 420),
+                    curve: Curves.easeOutBack,
+                    alignment: AlignmentDirectional(
+                      count == 1 ? 0 : selected * 2 / (count - 1) - 1,
+                      0,
+                    ),
+                    child: FractionallySizedBox(
+                      widthFactor: 1 / count,
+                      heightFactor: 1,
+                      child: Padding(
+                        padding: const EdgeInsets.all(2),
+                        child: DecoratedBox(
+                          decoration: ShapeDecoration(
+                            color: colors.primary,
+                            shape: prism.AppShape.full,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-                child: icon == null
-                    ? null
-                    : Icon(
-                        icon,
-                        size: 16,
-                        color:
-                            ThemeData.estimateBrightnessForColor(color) ==
-                                Brightness.dark
-                            ? Colors.white
-                            : Colors.black,
-                      ),
+                  Row(
+                    children: [
+                      for (var index = 0; index < count; index++)
+                        Expanded(
+                          child: _ThemeColorOption(
+                            option: options[index],
+                            selected: index == selected,
+                            onPressed: () => onSelected(index),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 4),
-        AnimatedDefaultTextStyle(
-          duration: const Duration(milliseconds: 180),
-          style: Theme.of(context).textTheme.labelSmall!.copyWith(
-            color: selected
-                ? Theme.of(context).colorScheme.primary
-                : Theme.of(context).colorScheme.onSurfaceVariant,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+        );
+      },
+    );
+  }
+}
+
+class _ThemeColorOption extends StatelessWidget {
+  const _ThemeColorOption({
+    required this.option,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final ({String label, Color color, IconData? icon}) option;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return DhizukuPressSurface(
+      fill: Colors.transparent,
+      shape: prism.AppShape.full,
+      look: prism.PressLook.none,
+      minimum: const BoxConstraints(minHeight: 76),
+      onPressed: selected ? null : onPressed,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          AnimatedScale(
+            duration: const Duration(milliseconds: 420),
+            curve: Curves.easeInOutCubic,
+            scale: selected ? 1 : 0.88,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 420),
+              curve: Curves.easeInOutCubic,
+              width: 30,
+              height: 30,
+              decoration: ShapeDecoration(
+                color: option.color,
+                shape: prism.AppShape.circle.copyWith(
+                  side: BorderSide(
+                    color: selected ? colors.onPrimary : Colors.transparent,
+                    width: 2,
+                  ),
+                ),
+              ),
+              child: option.icon == null
+                  ? null
+                  : Icon(
+                      option.icon,
+                      size: 16,
+                      color: selected
+                          ? colors.onPrimary
+                          : ThemeData.estimateBrightnessForColor(option.color) ==
+                                Brightness.dark
+                          ? Colors.white
+                          : Colors.black,
+                    ),
+            ),
           ),
-          child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-        ),
-      ],
-    ),
-  );
+          const SizedBox(height: 4),
+          AnimatedDefaultTextStyle(
+            duration: const Duration(milliseconds: 420),
+            curve: Curves.easeInOutCubic,
+            style: Theme.of(context).textTheme.labelSmall!.copyWith(
+              color: selected ? colors.onPrimary : colors.onSurfaceVariant,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+            ),
+            child: Text(
+              option.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class AccountManagementPage extends StatefulWidget {
