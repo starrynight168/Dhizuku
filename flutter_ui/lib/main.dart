@@ -575,21 +575,22 @@ class _DhizukuShellState extends State<DhizukuShell> {
   );
 
   Future<void> _confirmShutdown() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(tr(context, 'shutdown')),
-        content: Text(tr(context, 'home_shutdown_dsp')),
+    final confirm = await showDhizukuDialog<bool>(
+      context,
+      (context) => prism.AlertDialog(
+        title: tr(context, 'shutdown'),
+        destructive: true,
         actions: [
-          TextButton(
+          prism.TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: Text(tr(context, 'cancel')),
           ),
-          FilledButton(
+          prism.TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text(tr(context, 'confirm')),
           ),
         ],
+        child: Text(tr(context, 'home_shutdown_dsp')),
       ),
     );
     if (confirm == true) await DhizukuApi.shutdown();

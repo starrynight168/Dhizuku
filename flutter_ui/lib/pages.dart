@@ -37,6 +37,16 @@ Route<T> dhizukuPageRoute<T>(WidgetBuilder builder) => PageRouteBuilder<T>(
   },
 );
 
+Future<T?> showDhizukuDialog<T>(
+  BuildContext context,
+  WidgetBuilder builder, {
+  bool dismissible = true,
+}) => prism.showFloatingDialog<T>(
+  context: context,
+  child: Builder(builder: builder),
+  dismissible: dismissible,
+);
+
 Widget _packageIcon(
   BuildContext context,
   Object? bytes, {
@@ -228,19 +238,19 @@ class HomePage extends StatelessWidget {
   String _adminComponent() => 'com.rosan.dhizuku/.server.DhizukuDAReceiver';
 
   void _showAdbHelp(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(tr(context, 'adb_help')),
-        content: SelectableText(
-          'adb shell dpm set-device-owner ${_adminComponent()}',
-        ),
+    showDhizukuDialog<void>(
+      context,
+      (context) => prism.AlertDialog(
+        title: tr(context, 'adb_help'),
         actions: [
-          TextButton(
+          prism.TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(tr(context, 'confirm')),
           ),
         ],
+        child: SelectableText(
+          'adb shell dpm set-device-owner ${_adminComponent()}',
+        ),
       ),
     );
   }
@@ -253,21 +263,22 @@ class HomePage extends StatelessWidget {
   }
 
   Future<void> _deactivate(BuildContext context) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(tr(context, 'deactivate')),
-        content: Text(tr(context, 'deactivate_text')),
+    final confirm = await showDhizukuDialog<bool>(
+      context,
+      (context) => prism.AlertDialog(
+        title: tr(context, 'deactivate'),
+        destructive: true,
         actions: [
-          TextButton(
+          prism.TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: Text(tr(context, 'cancel')),
           ),
-          FilledButton(
+          prism.TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text(tr(context, 'confirm')),
           ),
         ],
+        child: Text(tr(context, 'deactivate_text')),
       ),
     );
     if (confirm == true) {
@@ -863,23 +874,22 @@ class _UserManagementPageState extends State<UserManagementPage> {
 
   Future<void> _remove(Map<String, dynamic> user) async {
     final failedMessage = tr(context, 'operation_failed');
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(tr(context, 'remove_user')),
-        content: Text(
-          '${user['name']}\n\n${tr(context, 'delete_user_warning')}',
-        ),
+    final confirm = await showDhizukuDialog<bool>(
+      context,
+      (context) => prism.AlertDialog(
+        title: tr(context, 'remove_user'),
+        destructive: true,
         actions: [
-          TextButton(
+          prism.TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: Text(tr(context, 'cancel')),
           ),
-          FilledButton(
+          prism.TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text(tr(context, 'remove')),
           ),
         ],
+        child: Text('${user['name']}\n\n${tr(context, 'delete_user_warning')}'),
       ),
     );
     if (confirm != true) return;
@@ -1547,22 +1557,22 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
 
   Future<void> _removeAccount(Map<String, dynamic> account) async {
     final failedMessage = tr(context, 'operation_failed');
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(tr(context, 'remove_account')),
-        content: Text(account['name'].toString()),
+    final confirm = await showDhizukuDialog<bool>(
+      context,
+      (context) => prism.AlertDialog(
+        title: tr(context, 'remove_account'),
+        destructive: true,
         actions: [
-          TextButton(
+          prism.TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: Text(tr(context, 'cancel')),
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(shape: const StadiumBorder()),
+          prism.TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text(tr(context, 'remove')),
           ),
         ],
+        child: Text(account['name'].toString()),
       ),
     );
     if (confirm == true) {
@@ -1683,149 +1693,179 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
   );
 }
 
-final _segmentSpring = SpringDescription.withDurationAndBounce(
+final _activationSpring = SpringDescription.withDurationAndBounce(
   duration: const Duration(milliseconds: 420),
   bounce: 0.15,
 );
 
-class _SpringSegmentedControl<T> extends StatefulWidget {
-  const _SpringSegmentedControl({
-    required this.segments,
+class _ActivationChoiceCards<T> extends StatefulWidget {
+  const _ActivationChoiceCards({
+    required this.choices,
     required this.value,
     required this.onChanged,
   });
 
-  final List<(T, String)> segments;
+  final List<(T, String, IconData)> choices;
   final T value;
   final ValueChanged<T> onChanged;
 
   @override
-  State<_SpringSegmentedControl<T>> createState() =>
-      _SpringSegmentedControlState<T>();
+  State<_ActivationChoiceCards<T>> createState() =>
+      _ActivationChoiceCardsState<T>();
 }
 
-class _SpringSegmentedControlState<T> extends State<_SpringSegmentedControl<T>>
+class _ActivationChoiceCardsState<T> extends State<_ActivationChoiceCards<T>>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _position = AnimationController.unbounded(
-    vsync: this,
-    value: _selectedIndex.toDouble(),
-  );
-
-  int get _selectedIndex {
-    final index = widget.segments.indexWhere(
-      (segment) => segment.$1 == widget.value,
-    );
-    return index < 0 ? 0 : index;
-  }
+  late final AnimationController _selectionScale =
+      AnimationController.unbounded(vsync: this, value: 1);
 
   @override
-  void didUpdateWidget(covariant _SpringSegmentedControl<T> oldWidget) {
+  void didUpdateWidget(covariant _ActivationChoiceCards<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.value != oldWidget.value) {
-      _position.animateWith(
-        SpringSimulation(
-          _segmentSpring,
-          _position.value,
-          _selectedIndex.toDouble(),
-          _position.velocity,
-        ),
+      _selectionScale.value = 0.92;
+      _selectionScale.animateWith(
+        SpringSimulation(_activationSpring, _selectionScale.value, 1, 0),
       );
     }
   }
 
   @override
   void dispose() {
-    _position.dispose();
+    _selectionScale.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final count = widget.segments.length;
-    return Container(
-      height: 52,
-      padding: const EdgeInsets.all(4),
-      decoration: ShapeDecoration(
-        color: colors.surfaceContainerLow,
-        shape: prism.AppShape.full,
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(999),
-        child: Stack(
-          children: [
-            AnimatedBuilder(
-              animation: _position,
-              builder: (context, child) => Align(
-                alignment: AlignmentDirectional(
-                  count <= 1 ? 0 : _position.value * 2 / (count - 1) - 1,
-                  0,
-                ),
+    return Row(
+      children: [
+        for (var index = 0; index < widget.choices.length; index++) ...[
+          if (index > 0) const SizedBox(width: 12),
+          Expanded(
+            child: AnimatedBuilder(
+              animation: _selectionScale,
+              builder: (context, child) => Transform.scale(
+                scale: widget.choices[index].$1 == widget.value
+                    ? _selectionScale.value
+                    : 1,
                 child: child,
               ),
-              child: FractionallySizedBox(
-                widthFactor: count == 0 ? 1 : 1 / count,
-                heightFactor: 1,
-                child: DecoratedBox(
-                  decoration: ShapeDecoration(
-                    color: colors.primary,
-                    shape: prism.AppShape.full,
-                  ),
-                ),
-              ),
-            ),
-            Row(
-              children: [
-                for (final (option, label) in widget.segments)
-                  Expanded(
-                    child: Builder(
-                      builder: (context) {
-                        final selected = option == widget.value;
-                        return prism.PressSurface(
-                          fill: Colors.transparent,
-                          shape: prism.AppShape.full,
-                          look: selected
-                              ? prism.PressLook.none
-                              : prism.PressLook.ink,
-                          ringStandsOff: selected,
-                          selected: selected,
-                          childFills: true,
-                          onPressed: selected
-                              ? () {}
-                              : () {
-                                  HapticFeedback.selectionClick();
-                                  widget.onChanged(option);
-                                },
-                          child: Center(
-                            child: AnimatedScale(
-                              scale: selected ? 1.04 : 1,
-                              duration: const Duration(milliseconds: 220),
-                              curve: Curves.easeOutBack,
-                              child: AnimatedDefaultTextStyle(
-                                duration: const Duration(milliseconds: 180),
-                                style: Theme.of(context).textTheme.labelLarge!
-                                    .copyWith(
+              child: Builder(
+                builder: (context) {
+                  final (value, label, icon) = widget.choices[index];
+                  final selected = value == widget.value;
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 260),
+                    curve: Curves.easeOutCubic,
+                    decoration: ShapeDecoration(
+                      color: selected
+                          ? colors.primaryContainer
+                          : colors.surfaceContainerLow,
+                      shape: prism.AppShape.xl,
+                      shadows: selected
+                          ? [
+                              BoxShadow(
+                                color: colors.primary.withValues(alpha: 0.12),
+                                blurRadius: 14,
+                                offset: const Offset(0, 4),
+                              ),
+                            ]
+                          : const [],
+                    ),
+                    child: prism.PressSurface(
+                      fill: Colors.transparent,
+                      shape: prism.AppShape.xl,
+                      look: selected
+                          ? prism.PressLook.none
+                          : prism.PressLook.tint,
+                      selected: selected,
+                      childFills: true,
+                      onPressed: selected
+                          ? () {}
+                          : () {
+                              HapticFeedback.selectionClick();
+                              widget.onChanged(value);
+                            },
+                      padding: const EdgeInsets.all(12),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 76),
+                        child: Stack(
+                          children: [
+                            Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  AnimatedScale(
+                                    scale: selected ? 1.08 : 1,
+                                    duration: const Duration(milliseconds: 220),
+                                    curve: Curves.easeOutBack,
+                                    child: Icon(
+                                      icon,
+                                      size: 24,
                                       color: selected
-                                          ? colors.onPrimary
+                                          ? colors.onPrimaryContainer
                                           : colors.onSurfaceVariant,
                                     ),
-                                child: Text(
-                                  label,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    label,
+                                    textAlign: TextAlign.center,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelLarge
+                                        ?.copyWith(
+                                          color: selected
+                                              ? colors.onPrimaryContainer
+                                              : colors.onSurface,
+                                          fontWeight: selected
+                                              ? FontWeight.w600
+                                              : FontWeight.w500,
+                                        ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ),
-                        );
-                      },
+                            Align(
+                              alignment: AlignmentDirectional.topEnd,
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 180),
+                                transitionBuilder: (child, animation) =>
+                                    ScaleTransition(
+                                      scale: animation,
+                                      child: FadeTransition(
+                                        opacity: animation,
+                                        child: child,
+                                      ),
+                                    ),
+                                child: selected
+                                    ? Icon(
+                                        Icons.check_circle_rounded,
+                                        key: const ValueKey(true),
+                                        size: 18,
+                                        color: colors.primary,
+                                      )
+                                    : const SizedBox.square(
+                                        key: ValueKey(false),
+                                        dimension: 18,
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
-              ],
+                  );
+                },
+              ),
             ),
-          ],
-        ),
-      ),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -1870,22 +1910,25 @@ class _ActivationPageState extends State<ActivationPage> {
       setState(() => _ownerType = value);
       return;
     }
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        icon: const Icon(Icons.warning_amber_rounded),
-        title: Text(tr(context, 'profile_owner_warning_title')),
-        content: Text(tr(context, 'profile_owner_warning_dsp')),
+    final confirmed = await showDhizukuDialog<bool>(
+      context,
+      (context) => prism.AlertDialog(
+        title: tr(context, 'profile_owner_warning_title'),
+        trailing: Icon(
+          Icons.warning_amber_rounded,
+          color: Theme.of(context).colorScheme.tertiary,
+        ),
         actions: [
-          TextButton(
+          prism.TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: Text(tr(context, 'cancel')),
           ),
-          FilledButton(
+          prism.TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text(tr(context, 'confirm')),
           ),
         ],
+        child: Text(tr(context, 'profile_owner_warning_dsp')),
       ),
     );
     if (confirmed == true && mounted) {
@@ -1900,21 +1943,21 @@ class _ActivationPageState extends State<ActivationPage> {
     );
     final selected = matches.isEmpty ? null : matches.first;
     if (selected == null) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(tr(context, 'activate')),
-        content: Text(tr(context, 'activation_warning')),
+    final confirmed = await showDhizukuDialog<bool>(
+      context,
+      (context) => prism.AlertDialog(
+        title: tr(context, 'activate'),
         actions: [
-          TextButton(
+          prism.TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: Text(tr(context, 'cancel')),
           ),
-          FilledButton(
+          prism.TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text(tr(context, 'confirm')),
           ),
         ],
+        child: Text(tr(context, 'activation_warning')),
       ),
     );
     if (!mounted || confirmed != true) return;
@@ -1922,24 +1965,14 @@ class _ActivationPageState extends State<ActivationPage> {
     var cancelRequested = false;
     var progressOpen = true;
     unawaited(
-      showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (dialogContext) => PopScope(
+      showDhizukuDialog<void>(
+        context,
+        (dialogContext) => PopScope(
           canPop: false,
-          child: AlertDialog(
-            title: Text(tr(dialogContext, 'activate')),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const LinearProgressIndicator(),
-                const SizedBox(height: 16),
-                Text(tr(dialogContext, 'activation_running')),
-              ],
-            ),
+          child: prism.AlertDialog(
+            title: tr(dialogContext, 'activate'),
             actions: [
-              TextButton(
+              prism.TextButton(
                 onPressed: () async {
                   if (cancelRequested) return;
                   cancelRequested = true;
@@ -1954,8 +1987,18 @@ class _ActivationPageState extends State<ActivationPage> {
                 child: Text(tr(dialogContext, 'cancel')),
               ),
             ],
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const LinearProgressIndicator(),
+                const SizedBox(height: 16),
+                Text(tr(dialogContext, 'activation_running')),
+              ],
+            ),
           ),
         ),
+        dismissible: false,
       ),
     );
     try {
@@ -1979,19 +2022,19 @@ class _ActivationPageState extends State<ActivationPage> {
         return;
       }
       if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (dialogContext) => AlertDialog(
-          title: Text(tr(dialogContext, 'activated')),
-          content: Text(tr(dialogContext, 'activation_success')),
+      await showDhizukuDialog<void>(
+        context,
+        (dialogContext) => prism.AlertDialog(
+          title: tr(dialogContext, 'activated'),
           actions: [
-            FilledButton(
+            prism.TextButton(
               onPressed: () => Navigator.pop(dialogContext),
               child: Text(tr(dialogContext, 'finish')),
             ),
           ],
+          child: Text(tr(dialogContext, 'activation_success')),
         ),
+        dismissible: false,
       );
       if (mounted) Navigator.of(context).pop(true);
     } catch (error) {
@@ -2084,35 +2127,58 @@ class _ActivationPageState extends State<ActivationPage> {
                 ],
               ),
             ),
-            if (_mode == 'shizuku') ...[
-              const SizedBox(height: 20),
-              _AnimatedEntry(
-                index: 2,
-                child: Column(
-                  children: [
-                    _SectionTitle(tr(context, 'owner_type')),
-                    _SpringSegmentedControl<String>(
-                      segments: [
-                        ('device', tr(context, 'device')),
-                        ('profile', tr(context, 'profile')),
-                      ],
-                      value: _ownerType,
-                      onChanged: _chooseOwnerType,
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            AnimatedSize(
+              alignment: Alignment.topCenter,
+              duration: const Duration(milliseconds: 360),
+              curve: Curves.easeOutBack,
+              child: _mode == 'shizuku'
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 20),
+                      child: _AnimatedEntry(
+                        index: 2,
+                        child: Column(
+                          children: [
+                            _SectionTitle(tr(context, 'owner_type')),
+                            _ActivationChoiceCards<String>(
+                              choices: [
+                                (
+                                  'device',
+                                  tr(context, 'device'),
+                                  Icons.phone_android_rounded,
+                                ),
+                                (
+                                  'profile',
+                                  tr(context, 'profile'),
+                                  Icons.workspaces_rounded,
+                                ),
+                              ],
+                              value: _ownerType,
+                              onChanged: _chooseOwnerType,
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
             const SizedBox(height: 20),
             _AnimatedEntry(
               index: 3,
               child: Column(
                 children: [
                   _SectionTitle(tr(context, 'activation_mode')),
-                  _SpringSegmentedControl<String>(
-                    segments: [
-                      ('dhizuku', tr(context, 'dhizuku_mode')),
-                      ('shizuku', tr(context, 'shizuku_mode')),
+                  _ActivationChoiceCards<String>(
+                    choices: [
+                      (
+                        'dhizuku',
+                        tr(context, 'dhizuku_mode'),
+                        Icons.shield_rounded,
+                      ),
+                      (
+                        'shizuku',
+                        tr(context, 'shizuku_mode'),
+                        Icons.terminal_rounded,
+                      ),
                     ],
                     value: _mode,
                     onChanged: (value) => setState(() {
@@ -2126,7 +2192,7 @@ class _ActivationPageState extends State<ActivationPage> {
             const SizedBox(height: 20),
             _AnimatedEntry(
               index: 4,
-              child: FilledButton.icon(
+              child: prism.FilledButton.icon(
                 onPressed: _busy ? null : () => _activate(admins),
                 icon: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 220),
