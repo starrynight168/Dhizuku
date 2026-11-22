@@ -15,7 +15,7 @@ interface UserService {
 
     suspend fun getAccounts(userId: Int): List<AccountEntity>
 
-    suspend fun removeAccount(account: AccountEntity): Boolean
+    suspend fun removeAccount(account: AccountEntity): String
 
     suspend fun setPackageEnabled(packageName: String, enabled: Boolean, userId: Int): Boolean
 

@@ -10,6 +10,47 @@ String tr(BuildContext context, String key) {
     'users': ['用户', 'Users'],
     'settings': ['设置', 'Settings'],
     'appearance_group': ['外观与主题', 'Appearance & theme'],
+    'user_guide': ['使用指南', 'User guide'],
+    'guide_intro': ['常见功能和问题处理', 'Features and common fixes'],
+    'guide_apps_title': ['应用权限', 'App access'],
+    'guide_apps_body': [
+      '允许 Dhizuku API 后，应用才能调用 Dhizuku。阻止应用会暂停该应用的 Dhizuku API；白名单模式开启时，只有明确允许的应用可以访问。',
+      'Allow Dhizuku API to let an app use Dhizuku. Blocking an app suspends its Dhizuku access. In whitelist mode, only explicitly allowed apps can access it.',
+    ],
+    'guide_accounts_title': ['用户与账户', 'Users and accounts'],
+    'guide_accounts_body': [
+      '点开用户可管理该用户的账户和账户应用。关闭账户应用会在该用户下停用整个应用。若账户名称被系统隐藏，请到系统账户设置中查看或移除。',
+      'Open a user to manage its accounts and account apps. Turning off an account app disables that app for that user. If Android hides an account name, view or remove it in system account settings.',
+    ],
+    'guide_activation_title': ['激活失败怎么办', 'If activation fails'],
+    'guide_activation_body': [
+      'Android 不允许在设备已有账户时设置设备所有者。先备份重要数据，再到系统账户设置移除账户，然后返回重试。若要管理工作资料，请选择配置文件所有者。',
+      'Android will not set a device owner while accounts remain on the device. Back up important data, remove the accounts in system settings, then retry. Choose profile owner when managing a work profile.',
+    ],
+    'guide_open_accounts': ['打开系统账户设置', 'Open system account settings'],
+    'account_name_hidden': ['账户名称已被系统隐藏', 'Account name hidden by Android'],
+    'account_name_hidden_title': [
+      '无法直接移除这个账户',
+      'This account cannot be removed here',
+    ],
+    'account_name_hidden_body': [
+      'Android 返回的是隐藏后的账户名称，应用无法准确定位它。请打开系统账户设置查看或移除。',
+      'Android returned a redacted account name, so the app cannot identify it safely. Open system account settings to view or remove it.',
+    ],
+    'account_confirmation_pending': [
+      '已打开系统确认界面；完成确认后返回此页刷新。',
+      'System confirmation opened. Finish it, then return here to refresh.',
+    ],
+    'activation_failed': ['激活没有完成', 'Activation did not complete'],
+    'activation_accounts_blocked': [
+      '设备上仍有账户，Android 因此拒绝设置设备所有者。备份重要数据后，打开系统账户设置移除账户，再回来重试。',
+      'Accounts remain on the device, so Android refused to set the device owner. Back up important data, remove the accounts in system settings, then return and retry.',
+    ],
+    'activation_troubleshoot': [
+      '检查 Shizuku 是否已启动、已授予权限，并确认所选管理组件仍已安装。也可以打开使用指南查看常见处理方法。',
+      'Check that Shizuku is running and authorized, and that the selected admin component is installed. Open the user guide for common fixes.',
+    ],
+    'error_details': ['错误详情', 'Error details'],
     'appearance_summary': ['主题模式、颜色和配色风格', 'Theme mode, colors, and palette'],
     'theme_preview': ['Dhizuku 外观预览', 'Dhizuku preview'],
     'theme_preview_subtitle': [

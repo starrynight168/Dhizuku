@@ -692,7 +692,7 @@ class _AppManagementPageState extends State<AppManagementPage> {
   void _reload() => setState(() => _apps = DhizukuApi.getApps());
 
   Future<void> _set(Map<String, dynamic> app, String key, bool value) async {
-    final operation = app['uid'].toString();
+    final operation = '${app['uid']}:$key';
     if (_pendingChanges.contains(operation)) return;
     final previous = app[key] == true;
     setState(() {
@@ -806,7 +806,7 @@ class _AppManagementPageState extends State<AppManagementPage> {
                                       enabled:
                                           !blocked &&
                                           !_pendingChanges.contains(
-                                            app['uid'].toString(),
+                                            '${app['uid']}:enabled',
                                           ),
                                       onChanged: (value) =>
                                           _set(app, 'enabled', value),
@@ -815,7 +815,7 @@ class _AppManagementPageState extends State<AppManagementPage> {
                                       title: tr(context, 'blocked'),
                                       value: blocked,
                                       enabled: !_pendingChanges.contains(
-                                        app['uid'].toString(),
+                                        '${app['uid']}:blocked',
                                       ),
                                       onChanged: (value) =>
                                           _set(app, 'blocked', value),
@@ -1144,10 +1144,26 @@ class SettingsPage extends StatelessWidget {
           ),
         ),
       ),
+      const SizedBox(height: 12),
+      _AnimatedEntry(
+        index: 1,
+        active: active,
+        child: Card(
+          child: _InteractiveListRow(
+            leading: const Icon(Icons.menu_book_outlined),
+            title: Text(tr(context, 'user_guide')),
+            subtitle: Text(tr(context, 'guide_intro')),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onPressed: () =>
+                Navigator.of(context)
+                    .push(dhizukuPageRoute<void>((_) => const UserGuidePage())),
+          ),
+        ),
+      ),
       const SizedBox(height: 24),
       _SectionTitle(tr(context, 'preferences_group')),
       _AnimatedEntry(
-        index: 1,
+        index: 2,
         active: active,
         child: Card(
           child: Column(
@@ -1178,7 +1194,7 @@ class SettingsPage extends StatelessWidget {
       const SizedBox(height: 24),
       _SectionTitle(tr(context, 'about_group')),
       _AnimatedEntry(
-        index: 2,
+        index: 3,
         active: active,
         child: Card(
           child: Column(
@@ -1231,6 +1247,90 @@ class SettingsPage extends StatelessWidget {
         ),
       ),
     ],
+  );
+}
+
+class UserGuidePage extends StatelessWidget {
+  const UserGuidePage({super.key});
+
+  Future<void> _openAccounts(BuildContext context) async {
+    try {
+      final opened = await DhizukuApi.openSystemAccountSettings();
+      if (!opened && context.mounted) {
+        _showActionError(context, tr(context, 'system_accounts_unavailable'));
+      }
+    } catch (error) {
+      if (context.mounted) _showActionError(context, error);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: Text(tr(context, 'user_guide'))),
+    body: ListView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+      children: [
+        _GuideSection(
+          index: 0,
+          title: tr(context, 'guide_apps_title'),
+          body: tr(context, 'guide_apps_body'),
+        ),
+        _GuideSection(
+          index: 1,
+          title: tr(context, 'guide_accounts_title'),
+          body: tr(context, 'guide_accounts_body'),
+          action: FilledButton.tonalIcon(
+            onPressed: () => _openAccounts(context),
+            icon: const Icon(Icons.manage_accounts_outlined),
+            label: Text(tr(context, 'guide_open_accounts')),
+          ),
+        ),
+        _GuideSection(
+          index: 2,
+          title: tr(context, 'guide_activation_title'),
+          body: tr(context, 'guide_activation_body'),
+          action: FilledButton.tonalIcon(
+            onPressed: () => _openAccounts(context),
+            icon: const Icon(Icons.settings_outlined),
+            label: Text(tr(context, 'guide_open_accounts')),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _GuideSection extends StatelessWidget {
+  const _GuideSection({
+    required this.index,
+    required this.title,
+    required this.body,
+    this.action,
+  });
+
+  final int index;
+  final String title;
+  final String body;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) => _AnimatedEntry(
+    index: index,
+    child: Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 12),
+            Text(body, style: Theme.of(context).textTheme.bodyLarge),
+            if (action != null) ...[const SizedBox(height: 16), action!],
+          ],
+        ),
+      ),
+    ),
   );
 }
 
@@ -1695,8 +1795,30 @@ class AccountManagementPage extends StatefulWidget {
   State<AccountManagementPage> createState() => _AccountManagementPageState();
 }
 
-class _AccountManagementPageState extends State<AccountManagementPage> {
+class _AccountManagementPageState extends State<AccountManagementPage>
+    with WidgetsBindingObserver {
   late Future<Map<String, dynamic>> _data = _load();
+  bool _refreshOnResume = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _refreshOnResume && mounted) {
+      _refreshOnResume = false;
+      _reload();
+    }
+  }
 
   Future<Map<String, dynamic>> _load() =>
       DhizukuApi.getAccountData(widget.user['id'] as int);
@@ -1705,13 +1827,52 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
 
   String _accountProviderLabel(Map<String, dynamic> account) {
     final provider = account['providerLabel']?.toString() ?? '';
-    if (provider.isNotEmpty) {
+    if (provider.isNotEmpty && provider.toLowerCase() != 'null') {
       return tr(context, 'account_from').replaceAll('{provider}', provider);
     }
+    final type = account['type']?.toString() ?? '';
     return tr(
       context,
       'account_type',
-    ).replaceAll('{type}', account['type'].toString());
+    ).replaceAll('{type}', type.isEmpty ? '—' : type);
+  }
+
+  String _accountName(Map<String, dynamic> account) {
+    final name = account['name']?.toString() ?? '';
+    return _isMaskedAccountName(name)
+        ? tr(context, 'account_name_hidden')
+        : name;
+  }
+
+  bool _isMaskedAccountName(String name) => RegExp(
+    r'^(?:x{3,}|[*•·]{3,})$',
+    caseSensitive: false,
+  ).hasMatch(name.trim());
+
+  String _authenticatorLabel(Map<String, dynamic> item) {
+    final label = item['label']?.toString() ?? '';
+    final cleanLabel = label
+        .replaceFirst(RegExp(r'\s*-\s*null$', caseSensitive: false), '')
+        .trim();
+    return cleanLabel.isEmpty || cleanLabel.toLowerCase() == 'null'
+        ? item['packageName'].toString()
+        : cleanLabel;
+  }
+
+  Future<void> _openSystemAccounts() async {
+    _refreshOnResume = true;
+    try {
+      final opened = await DhizukuApi.openSystemAccountSettings();
+      if (!opened) {
+        _refreshOnResume = false;
+        if (mounted) {
+          _showActionError(context, tr(context, 'system_accounts_unavailable'));
+        }
+      }
+    } catch (error) {
+      _refreshOnResume = false;
+      if (mounted) _showActionError(context, error);
+    }
   }
 
   Future<void> _toggleAuthenticator(
@@ -1735,6 +1896,27 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
   }
 
   Future<void> _removeAccount(Map<String, dynamic> account) async {
+    if (_isMaskedAccountName(account['name']?.toString() ?? '')) {
+      final openSettings = await showDhizukuDialog<bool>(
+        context,
+        (context) => prism.AlertDialog(
+          title: tr(context, 'account_name_hidden_title'),
+          actions: [
+            DhizukuTextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(tr(context, 'cancel')),
+            ),
+            DhizukuTextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(tr(context, 'guide_open_accounts')),
+            ),
+          ],
+          child: Text(tr(context, 'account_name_hidden_body')),
+        ),
+      );
+      if (openSettings == true) await _openSystemAccounts();
+      return;
+    }
     final failedMessage = tr(context, 'operation_failed');
     final confirm = await showDhizukuDialog<bool>(
       context,
@@ -1756,12 +1938,22 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
     );
     if (confirm == true) {
       try {
-        final removed = await DhizukuApi.removeAccount(account);
-        if (!removed) {
+        final status = await DhizukuApi.removeAccount(account);
+        if (status == 'removed') {
+          _refreshOnResume = false;
+          _reload();
+        } else if (status == 'confirmation_required') {
+          _refreshOnResume = true;
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(tr(context, 'account_confirmation_pending')),
+              ),
+            );
+          }
+        } else {
           if (mounted) _showActionError(context, failedMessage);
-          return;
         }
-        _reload();
       } catch (error) {
         if (mounted) _showActionError(context, error);
       }
@@ -1775,19 +1967,7 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
       actions: [
         DhizukuIconButton(
           tooltip: tr(context, 'open_system_accounts'),
-          onPressed: () async {
-            try {
-              final opened = await DhizukuApi.openSystemAccountSettings();
-              if (!opened && context.mounted) {
-                _showActionError(
-                  context,
-                  tr(context, 'system_accounts_unavailable'),
-                );
-              }
-            } catch (error) {
-              if (context.mounted) _showActionError(context, error);
-            }
-          },
+          onPressed: _openSystemAccounts,
           icon: const Icon(Icons.settings_outlined),
         ),
       ],
@@ -1833,7 +2013,7 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
                         fallback: Icons.account_circle_outlined,
                         size: 44,
                       ),
-                      title: Text(accounts[index]['name'].toString()),
+                      title: Text(_accountName(accounts[index])),
                       subtitle: Text(_accountProviderLabel(accounts[index])),
                       trailing: DhizukuPressFeedback(
                         child: IconButton.filledTonal(
@@ -1881,7 +2061,7 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
                         fallback: Icons.extension_outlined,
                         size: 44,
                       ),
-                      title: authenticators[index]['label'].toString(),
+                      title: _authenticatorLabel(authenticators[index]),
                       subtitle: authenticators[index]['packageName'].toString(),
                       value: authenticators[index]['frozen'] != true,
                       onChanged: (enabled) =>
@@ -2204,6 +2384,9 @@ class _ActivationPageState extends State<ActivationPage> {
     }
     var cancelRequested = false;
     var progressOpen = true;
+    var retryAfterFailure = false;
+    var openGuideAfterFailure = false;
+    var openAccountsAfterFailure = false;
     unawaited(
       showDhizukuDialog<void>(
         context,
@@ -2287,20 +2470,89 @@ class _ActivationPageState extends State<ActivationPage> {
           _reload();
           return;
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${tr(context, 'error')}: $error'),
-            action: SnackBarAction(
-              label: tr(context, 'retry'),
-              onPressed: () => _activate(admins),
+        final details = error.toString();
+        final normalized = details.toLowerCase();
+        final accountsRemain =
+            normalized.contains('already some accounts') ||
+            normalized.contains('accounts on the device');
+        final shortDetails = details.length > 220
+            ? '${details.substring(0, 220)}…'
+            : details;
+        final action = await showDhizukuDialog<String>(
+          context,
+          (dialogContext) => prism.AlertDialog(
+            title: tr(dialogContext, 'activation_failed'),
+            actions: [
+              DhizukuTextButton(
+                onPressed: () => Navigator.pop(dialogContext, 'close'),
+                child: Text(tr(dialogContext, 'cancel')),
+              ),
+              DhizukuTextButton(
+                onPressed: () => Navigator.pop(dialogContext, 'guide'),
+                child: Text(tr(dialogContext, 'user_guide')),
+              ),
+              DhizukuTextButton(
+                onPressed: () => Navigator.pop(dialogContext, 'retry'),
+                child: Text(tr(dialogContext, 'retry')),
+              ),
+            ],
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  tr(
+                    dialogContext,
+                    accountsRemain
+                        ? 'activation_accounts_blocked'
+                        : 'activation_troubleshoot',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  '${tr(dialogContext, 'error_details')}: $shortDetails',
+                  style: Theme.of(dialogContext).textTheme.bodySmall,
+                ),
+                if (accountsRemain) ...[
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FilledButton.tonalIcon(
+                      onPressed: () =>
+                          Navigator.pop(dialogContext, 'accounts'),
+                      icon: const Icon(Icons.manage_accounts_outlined),
+                      label: Text(tr(dialogContext, 'guide_open_accounts')),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         );
+        retryAfterFailure = action == 'retry';
+        openGuideAfterFailure = action == 'guide';
+        openAccountsAfterFailure = action == 'accounts';
       }
     } finally {
       if (progressOpen && mounted) Navigator.of(context).pop();
       if (mounted) setState(() => _busy = false);
     }
+    if (!mounted) return;
+    if (openGuideAfterFailure) {
+      await Navigator.of(context)
+          .push<void>(dhizukuPageRoute<void>((_) => const UserGuidePage()));
+    }
+    if (openAccountsAfterFailure) {
+      try {
+        final opened = await DhizukuApi.openSystemAccountSettings();
+        if (!opened && mounted) {
+          _showActionError(context, tr(context, 'system_accounts_unavailable'));
+        }
+      } catch (error) {
+        if (mounted) _showActionError(context, error);
+      }
+    }
+    if (retryAfterFailure) await _activate(admins);
   }
 
   @override

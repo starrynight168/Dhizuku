@@ -72,8 +72,15 @@ class ShizukuUserService(private val context: Context) : UserService {
 
                     // 本地PackageManager通过【包名字符串】读取资源，不传递远程ApplicationInfo
                     val appLabel = basePackageManager.getApplicationLabel(basePackageManager.getApplicationInfo(packageName, 0)).toString()
-                    val descLabel = basePackageManager.getText(packageName, description.labelId, null).toString()
-                    val label = if (appLabel == descLabel) appLabel else "$appLabel - $descLabel"
+                    val descLabel = runCatching {
+                        basePackageManager.getText(packageName, description.labelId, null)
+                            ?.toString()
+                            ?.takeIf { it.isNotBlank() && !it.equals("null", true) }
+                    }.getOrNull()
+                    val label = listOfNotNull(
+                        appLabel.takeIf { it.isNotBlank() },
+                        descLabel?.takeIf { it != appLabel },
+                    ).joinToString(" - ").ifBlank { packageName }
                     val icon = basePackageManager.getApplicationIcon(packageName)
 
                     AccountAuthenticatorEntity(
@@ -194,41 +201,38 @@ class ShizukuUserService(private val context: Context) : UserService {
             .toList()
     }
 
-    override suspend fun removeAccount(account: AccountEntity): Boolean = requireShizukuPermissionGranted(context) {
+    override suspend fun removeAccount(account: AccountEntity): String = requireShizukuPermissionGranted(context) {
         val targetAccount = Account(account.name, account.type)
-        val result = suspendCancellableCoroutine { continuation ->
+        suspendCancellableCoroutine<String> { continuation ->
             val response = object : IAccountManagerResponse.Stub() {
                 override fun onResult(value: Bundle?) {
                     val intent = value?.getParcelableCompat<android.content.Intent>("intent")
-                    if (intent != null) {
-                        try {
+                    val status = if (intent != null) {
+                        runCatching {
                             intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                             context.startActivity(intent)
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
+                        }.fold(
+                            onSuccess = { "confirmation_required" },
+                            onFailure = { "failed" },
+                        )
+                    } else if (value?.getBoolean("booleanResult", false) == true) {
+                        "removed"
+                    } else {
+                        "failed"
                     }
-                    val success = value?.getBoolean("booleanResult", false) ?: false
-                    if (continuation.isActive) {
-                        continuation.resume(success)
-                    }
+                    if (continuation.isActive) continuation.resume(status)
                 }
 
                 override fun onError(errorCode: Int, errorMessage: String?) {
-                    if (continuation.isActive) {
-                        continuation.resume(false)
-                    }
+                    if (continuation.isActive) continuation.resume("failed")
                 }
             }
             try {
                 accountManager.removeAccountAsUser(response, targetAccount, false, account.userId)
             } catch (e: Exception) {
-                if (continuation.isActive) {
-                    continuation.resumeWith(Result.failure(e))
-                }
+                if (continuation.isActive) continuation.resumeWith(Result.failure(e))
             }
         }
-        result
     }
 
     override suspend fun setPackageEnabled(packageName: String, enabled: Boolean, userId: Int): Boolean = requireShizukuPermissionGranted(context) {
