@@ -417,7 +417,14 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
         activity.lifecycleScope.launch {
             runCatching { block() }
                 .onSuccess(result::success)
-                .onFailure { result.error("dhizuku_error", it.message ?: it.javaClass.simpleName, null) }
+                .onFailure {
+                    android.util.Log.e("DhizukuFlutterBridge", "Bridge operation failed", it)
+                    result.error(
+                        "dhizuku_error",
+                        "${it.javaClass.simpleName}: ${it.message ?: "Unknown error"}",
+                        null
+                    )
+                }
         }
     }
 

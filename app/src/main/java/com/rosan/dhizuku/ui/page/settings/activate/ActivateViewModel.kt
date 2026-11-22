@@ -256,11 +256,25 @@ class ActivateViewModel : ViewModel(), KoinComponent {
         var field: Field? = null
         var iInterface: IInterface? = null
         try {
-            field = manager.javaClass.getDeclaredField("mService")
-            field.isAccessible = true
-            iInterface = field.get(manager) as IInterface
-            val binder = wrapper.invoke(iInterface.asBinder()!!)
-            field.set(manager, IDevicePolicyManager.Stub.asInterface(binder))
+            val serviceField = manager.javaClass.getDeclaredField("mService")
+                .also { it.isAccessible = true }
+            field = serviceField
+            val originalService = checkNotNull(serviceField.get(manager) as? IInterface) {
+                "Device policy service is unavailable"
+            }
+            iInterface = originalService
+            val originalBinder = checkNotNull(originalService.asBinder()) {
+                "Device policy service Binder is unavailable"
+            }
+            val wrappedBinder = checkNotNull(wrapper.invoke(originalBinder)) {
+                "Binder wrapper returned no service"
+            }
+            val wrappedService = checkNotNull(
+                IDevicePolicyManager.Stub.asInterface(wrappedBinder)
+            ) {
+                "Unable to create wrapped device policy service"
+            }
+            serviceField.set(manager, wrappedService)
             action.invoke(manager)
         } finally {
             try {
