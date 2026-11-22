@@ -41,36 +41,25 @@ Widget _packageIcon(
   Object? bytes, {
   required IconData fallback,
   double size = 48,
-  bool circular = false,
-  Color? backgroundColor,
-  Color? foregroundColor,
 }) {
   final colors = Theme.of(context).colorScheme;
-  return Container(
-    width: size,
-    height: size,
-    clipBehavior: Clip.antiAlias,
-    decoration: BoxDecoration(
-      color: backgroundColor ?? colors.surfaceContainerHighest,
-      shape: circular ? BoxShape.circle : BoxShape.rectangle,
-      borderRadius: circular ? null : BorderRadius.circular(size * 0.24),
-    ),
+  return SizedBox.square(
+    dimension: size,
     child: bytes is Uint8List
-        ? Image.memory(
-            bytes,
-            fit: BoxFit.cover,
-            gaplessPlayback: true,
-            errorBuilder: (_, _, _) => Icon(
-              fallback,
-              size: size * 0.62,
-              color: foregroundColor ?? colors.onSurfaceVariant,
+        ? ClipRRect(
+            borderRadius: BorderRadius.circular(size * 0.24),
+            child: Image.memory(
+              bytes,
+              fit: BoxFit.contain,
+              gaplessPlayback: true,
+              errorBuilder: (_, _, _) => Icon(
+                fallback,
+                size: size * 0.62,
+                color: colors.onSurfaceVariant,
+              ),
             ),
           )
-        : Icon(
-            fallback,
-            size: size * 0.62,
-            color: foregroundColor ?? colors.onSurfaceVariant,
-          ),
+        : Icon(fallback, size: size * 0.62, color: colors.onSurfaceVariant),
   );
 }
 

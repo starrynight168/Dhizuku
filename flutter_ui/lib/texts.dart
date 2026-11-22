@@ -93,6 +93,7 @@ String tr(BuildContext context, String key) {
     'hide_donate': ['隐藏捐赠入口', 'Hide donation link'],
     'donate': ['捐赠项目', 'Support the project'],
     'shutdown': ['关闭', 'Shutdown'],
+    'press_back_again_to_exit': ['再按一次返回键退出', 'Press back again to exit'],
     'home_shutdown_dsp': [
       '除非 Dhizuku 主动关闭，否则系统将无法关闭 Dhizuku。',
       'The system cannot stop Dhizuku unless Dhizuku shuts itself down.',

@@ -358,6 +358,7 @@ class DhizukuShell extends StatefulWidget {
 
 class _DhizukuShellState extends State<DhizukuShell> {
   int _selected = 0;
+  DateTime? _lastBackPress;
   final PageController _pageController = PageController();
   late Map<String, dynamic> _homeData = widget.initialData;
   late Map<String, dynamic> _settings = Map<String, dynamic>.from(
@@ -388,6 +389,25 @@ class _DhizukuShellState extends State<DhizukuShell> {
         curve: Curves.easeInOutCubic,
       ),
     );
+  }
+
+  void _handleBackPress() {
+    final now = DateTime.now();
+    if (_lastBackPress != null &&
+        now.difference(_lastBackPress!) <= const Duration(seconds: 2)) {
+      SystemNavigator.pop();
+      return;
+    }
+    _lastBackPress = now;
+    if (_selected != 0) _selectPage(0);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(tr(context, 'press_back_again_to_exit')),
+          duration: const Duration(seconds: 2),
+        ),
+      );
   }
 
   @override
@@ -423,7 +443,7 @@ class _DhizukuShellState extends State<DhizukuShell> {
     ];
     final wide = MediaQuery.sizeOf(context).width >= 720;
     final title = tr(context, labels[_selected]);
-    return Scaffold(
+    final scaffold = Scaffold(
       extendBody: !wide,
       appBar: AppBar(
         title: AnimatedSwitcher(
@@ -533,6 +553,13 @@ class _DhizukuShellState extends State<DhizukuShell> {
           ),
         ],
       ),
+    );
+    return PopScope<Object?>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _handleBackPress();
+      },
+      child: scaffold,
     );
   }
 
