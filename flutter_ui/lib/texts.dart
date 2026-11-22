@@ -83,8 +83,8 @@ String tr(BuildContext context, String key) {
       'This account cannot be removed here',
     ],
     'account_name_hidden_body': [
-      'Android 隐藏了账户名称，应用无法安全定位它。若只是暂停服务，请关闭对应的账户应用；若系统拒绝设置设备所有者，冻结不会移除系统账户，请备份后到系统账户设置处理。',
-      'Android hid the account name, so the app cannot identify it safely. To pause the service, disable its account app. If Android refuses device-owner setup, freezing will not remove the system account; back up data and handle it in system account settings.',
+      '系统返回的账户名称无法识别，应用无法确认具体账户。请在系统账户设置中选择并移除；若只想暂停服务，可冻结对应的账户应用。',
+      'The account name returned by the system is unavailable, so this app cannot identify the exact account. Select and remove it in system account settings, or freeze its app to pause the service.',
     ],
     'remove_account_warning': [
       '移除会让该用户退出此账户。若只是暂停服务，请取消并冻结上方对应的账户应用；若 Android 因账户阻止设置设备所有者，则必须从系统账户中移除。',
@@ -98,6 +98,10 @@ String tr(BuildContext context, String key) {
     'activation_accounts_blocked': [
       '设备上仍有系统账户，Android 因此拒绝设置设备所有者。冻结账户应用只会暂停应用，不会清除系统账户记录。请备份重要数据后，从系统账户设置移除账户再重试；若只是暂停账户服务，则无需移除账户。',
       'System accounts remain on the device, so Android refused device-owner setup. Freezing an account app only pauses the app; it does not clear the system account record. Back up important data, remove the account in system settings, then retry. If you only want to pause the service, no account removal is needed.',
+    ],
+    'activation_accounts_remaining': [
+      '检测到 {count} 条系统账户记录仍保存在设备中。冻结账户应用不会移除这些记录；请先备份重要数据，再到系统账户设置中移除账户。',
+      'Found {count} system account records still on the device. Freezing account apps does not remove these records. Back up important data, then remove the accounts in system settings.',
     ],
     'activation_dhizuku_troubleshoot': [
       'Dhizuku 方式要求当前 Dhizuku 已激活并获得所需权限。若这是首次设置，请改用 Shizuku 方式；同时确认目标管理组件仍已安装。',
@@ -176,15 +180,15 @@ String tr(BuildContext context, String key) {
     'confirm': ['确认', 'Confirm'],
     'accounts': ['已添加账户', 'Saved accounts'],
     'accounts_description': [
-      '这里列出该用户已添加的账户。只想暂停服务时，先冻结上方对应的账户应用并保留登录；若 Android 因设备已有账户拒绝设置设备所有者，则需从系统账户设置移除账户。移除会使该用户退出账户。',
-      'Accounts added for this user appear here. To pause a service while staying signed in, freeze its account app above. If Android refuses device-owner setup because accounts remain, remove the account in system settings. Removing it signs the user out.',
+      '此处列出该用户已添加的账户。冻结对应应用会暂停服务并保留登录；移除账户会退出登录。',
+      'Accounts saved to this user appear here. Freezing the matching app pauses its service but keeps it signed in; removing the account signs it out.',
     ],
-    'account_from': ['由 {provider} 提供', 'Provided by {provider}'],
+    'account_from': ['来自 {provider}', 'From {provider}'],
     'account_type': ['账户类型：{type}', 'Account type: {type}'],
     'authenticators': ['账户应用（优先冻结）', 'Account apps (freeze first)'],
     'authenticators_description': [
-      '先关闭与账户来源对应的应用开关。冻结会停用该用户下整个应用，但保留账户登录状态。',
-      'First turn off the app matching the account provider. Freezing disables the whole app for this user while keeping the account signed in.',
+      '冻结会停用整个应用，但保留账户登录。可逐个操作，也可一键冻结或解冻全部应用。',
+      'Freezing disables the whole app while keeping accounts signed in. Manage apps individually or freeze and unfreeze them all at once.',
     ],
     'open_system_accounts': ['打开系统账户设置', 'Open system account settings'],
     'system_accounts_unavailable': [
@@ -193,6 +197,20 @@ String tr(BuildContext context, String key) {
     ],
     'freeze': ['冻结', 'Freeze'],
     'unfreeze': ['解冻', 'Unfreeze'],
+    'freeze_all': ['一键冻结', 'Freeze all'],
+    'unfreeze_all': ['一键解冻', 'Unfreeze all'],
+    'freeze_state_summary': [
+      '已冻结 {frozen} 个 · 已启用 {enabled} 个',
+      '{frozen} frozen · {enabled} enabled',
+    ],
+    'bulk_freeze_progress': [
+      '正在处理 {current}/{total} 个应用…',
+      'Updating {current}/{total} apps…',
+    ],
+    'bulk_freeze_result': [
+      '操作完成：成功 {success} 个，失败 {failed} 个',
+      'Finished: {success} succeeded, {failed} failed',
+    ],
     'dhizuku_enabled': ['启用 Dhizuku API', 'Enable Dhizuku API'],
     'whitelist': ['白名单模式', 'Whitelist mode'],
     'hide_donate': ['隐藏捐赠入口', 'Hide donation link'],

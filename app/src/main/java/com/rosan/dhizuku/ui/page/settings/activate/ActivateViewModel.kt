@@ -165,7 +165,7 @@ class ActivateViewModel : ViewModel(), KoinComponent {
                 ShizukuBinderWrapper(it)
             }) {
                 val userId = Os.getuid() / 100000
-                it.setActiveAdmin(who, true, userId)
+                if (!it.isAdminActive(who)) it.setActiveAdmin(who, true, userId)
                 it.setDeviceOwner(who, null, userId)
             }
         }
@@ -179,7 +179,7 @@ class ActivateViewModel : ViewModel(), KoinComponent {
                 ShizukuBinderWrapper(it)
             }) {
                 val userId = Os.getuid() / 100000
-                it.setActiveAdmin(who, true, userId)
+                if (!it.isAdminActive(who)) it.setActiveAdmin(who, true, userId)
                 it.setProfileOwner(who, null, userId)
             }
         }
@@ -204,22 +204,23 @@ class ActivateViewModel : ViewModel(), KoinComponent {
         userId: Int
     ) {
         val clazz = this::class.java
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        val success = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             clazz.getDeclaredMethod("setDeviceOwner", ComponentName::class.java, Int::class.java)
-                .also { it.isAccessible = true }.invoke(this, who, userId)
-            return
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                .also { it.isAccessible = true }.invoke(this, who, userId) as? Boolean ?: false
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             clazz.getDeclaredMethod(
                 "setDeviceOwner",
                 ComponentName::class.java,
                 String::class.java,
                 Int::class.java
-            ).also { it.isAccessible = true }.invoke(this, who, ownerName, userId)
-            return
+            ).also { it.isAccessible = true }.invoke(this, who, ownerName, userId) as? Boolean ?: false
+        } else {
+            clazz.getDeclaredMethod("setDeviceOwner", ComponentName::class.java, String::class.java)
+                .also { it.isAccessible = true }.invoke(this, who, ownerName) as? Boolean ?: false
         }
-        clazz.getDeclaredMethod("setDeviceOwner", ComponentName::class.java, String::class.java)
-            .also { it.isAccessible = true }.invoke(this, who, ownerName)
+        check(success) {
+            "Android refused to set $who as device owner. Check system accounts, additional users, and device setup state."
+        }
     }
 
     private fun DevicePolicyManager.setProfileOwner(
@@ -228,22 +229,23 @@ class ActivateViewModel : ViewModel(), KoinComponent {
         userId: Int
     ) {
         val clazz = this::class.java
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        val success = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             clazz.getDeclaredMethod("setProfileOwner", ComponentName::class.java, Int::class.java)
-                .also { it.isAccessible = true }.invoke(this, who, userId)
-            return
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                .also { it.isAccessible = true }.invoke(this, who, userId) as? Boolean ?: false
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             clazz.getDeclaredMethod(
                 "setProfileOwner",
                 ComponentName::class.java,
                 String::class.java,
                 Int::class.java
-            ).also { it.isAccessible = true }.invoke(this, who, ownerName, userId)
-            return
+            ).also { it.isAccessible = true }.invoke(this, who, ownerName, userId) as? Boolean ?: false
+        } else {
+            clazz.getDeclaredMethod("setProfileOwner", ComponentName::class.java, String::class.java)
+                .also { it.isAccessible = true }.invoke(this, who, ownerName) as? Boolean ?: false
         }
-        clazz.getDeclaredMethod("setProfileOwner", ComponentName::class.java, String::class.java)
-            .also { it.isAccessible = true }.invoke(this, who, ownerName)
+        check(success) {
+            "Android refused to set $who as profile owner. Check the selected user and device setup state."
+        }
     }
 
     @SuppressLint("PrivateApi")

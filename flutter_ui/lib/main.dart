@@ -73,7 +73,14 @@ class _DhizukuAppState extends State<DhizukuApp> {
             curve: Curves.easeInOutCubic,
             builder: (context, colorScheme, child) => prism.Theme(
               data: prism.ThemeData(colorScheme: colorScheme),
-              child: child ?? const SizedBox.shrink(),
+              child: prism.LiquidGlassScope(
+                enabled: true,
+                quality: prism.LiquidGlassQuality.standard,
+                child: prism.LiquidGlassHost(
+                  enabled: true,
+                  child: child ?? const SizedBox.shrink(),
+                ),
+              ),
             ),
             child: child,
           );
@@ -165,6 +172,9 @@ class _DhizukuAppState extends State<DhizukuApp> {
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
+        backgroundColor: colorScheme.surfaceContainerHigh,
+        contentTextStyle: TextStyle(color: colorScheme.onSurface),
+        actionTextColor: colorScheme.primary,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
     );

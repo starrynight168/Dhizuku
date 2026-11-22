@@ -526,7 +526,7 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
     private fun launch(result: MethodChannel.Result, block: suspend () -> Any?) {
         activity.lifecycleScope.launch {
             runCatching { block() }
-                .onSuccess(result::success)
+                .onSuccess { value -> result.success(if (value === Unit) null else value) }
                 .onFailure {
                     android.util.Log.e("DhizukuFlutterBridge", "Bridge operation failed", it)
                     result.error(

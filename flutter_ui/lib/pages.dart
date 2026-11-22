@@ -71,7 +71,7 @@ Future<T?> showDhizukuDialog<T>(
         parent: animation,
         curve: Curves.easeInOutCubic,
       );
-      return FadeTransition(
+      return prism.LiquidGlassFade(
         opacity: motion,
         child: SlideTransition(
           position: Tween<Offset>(
@@ -1022,54 +1022,56 @@ class _StatusPanel extends StatelessWidget {
                 ?.copyWith(color: colorScheme.onSurfaceVariant),
           ),
         ],
-        const SizedBox(height: 16),
-        DhizukuPressSurface(
-          fill: owner ? colorScheme.primaryContainer : Colors.transparent,
-          shape: prism.AppShape.xl,
-          look: owner ? prism.PressLook.tint : prism.PressLook.none,
-          onPressed: owner ? onOpenApps : null,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          child: Row(
-            children: [
-              GlyphIcon(
-                owner ? DhizukuGlyphs.verified : DhizukuGlyphs.logs,
-                size: 18,
-                color: owner
-                    ? colorScheme.onPrimaryContainer
-                    : colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      owner
-                          ? tr(context, 'activated')
-                          : tr(context, 'not_activated'),
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: owner
-                            ? colorScheme.onPrimaryContainer
-                            : colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    if (owner)
+        if (owner) ...[
+          const SizedBox(height: 16),
+          DhizukuPressSurface(
+            fill: owner ? colorScheme.primaryContainer : Colors.transparent,
+            shape: prism.AppShape.xl,
+            look: owner ? prism.PressLook.tint : prism.PressLook.none,
+            onPressed: owner ? onOpenApps : null,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Row(
+              children: [
+                GlyphIcon(
+                  owner ? DhizukuGlyphs.verified : DhizukuGlyphs.logs,
+                  size: 18,
+                  color: owner
+                      ? colorScheme.onPrimaryContainer
+                      : colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        tr(context, 'view_authorized_apps'),
-                        style: Theme.of(context).textTheme.labelSmall
-                            ?.copyWith(color: colorScheme.onPrimaryContainer),
+                        owner
+                            ? tr(context, 'activated')
+                            : tr(context, 'not_activated'),
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: owner
+                              ? colorScheme.onPrimaryContainer
+                              : colorScheme.onSurfaceVariant,
+                        ),
                       ),
-                  ],
+                      if (owner)
+                        Text(
+                          tr(context, 'view_authorized_apps'),
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(color: colorScheme.onPrimaryContainer),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-              if (owner)
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: colorScheme.onPrimaryContainer,
-                ),
-            ],
+                if (owner)
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: colorScheme.onPrimaryContainer,
+                  ),
+              ],
+            ),
           ),
-        ),
+        ],
       ],
     );
   }
@@ -2339,6 +2341,9 @@ class _AccountManagementPageState extends State<AccountManagementPage>
     with WidgetsBindingObserver {
   late Future<Map<String, dynamic>> _data = _load();
   bool _refreshOnResume = false;
+  bool _bulkBusy = false;
+  int _bulkProgress = 0;
+  int _bulkTotal = 0;
 
   @override
   void initState() {
@@ -2389,6 +2394,19 @@ class _AccountManagementPageState extends State<AccountManagementPage>
     caseSensitive: false,
   ).hasMatch(name.trim());
 
+  List<Map<String, dynamic>> _uniqueAuthenticatorApps(
+    List<Map<String, dynamic>> authenticators,
+  ) {
+    final apps = <String, Map<String, dynamic>>{};
+    for (final authenticator in authenticators) {
+      final packageName = authenticator['packageName']?.toString() ?? '';
+      if (packageName.isNotEmpty) {
+        apps.putIfAbsent(packageName, () => authenticator);
+      }
+    }
+    return apps.values.toList(growable: false);
+  }
+
   String _authenticatorLabel(Map<String, dynamic> item) {
     final label = item['label']?.toString() ?? '';
     final cleanLabel = label
@@ -2421,18 +2439,65 @@ class _AccountManagementPageState extends State<AccountManagementPage>
   ) async {
     final failedMessage = tr(context, 'operation_failed');
     try {
-      final updated = await DhizukuApi.setAuthenticatorEnabled(
-        userId: widget.user['id'] as int,
-        packageName: item['packageName'].toString(),
-        label: item['label'].toString(),
-        type: item['type'].toString(),
-        enabled: enabled,
-      );
+      final updated = await _setAuthenticatorEnabled(item, enabled);
       if (!updated) throw StateError(failedMessage);
       _reload();
     } catch (error) {
       if (mounted) _showActionError(context, error);
     }
+  }
+
+  Future<bool> _setAuthenticatorEnabled(
+    Map<String, dynamic> item,
+    bool enabled,
+  ) => DhizukuApi.setAuthenticatorEnabled(
+    userId: widget.user['id'] as int,
+    packageName: item['packageName'].toString(),
+    label: item['label'].toString(),
+    type: item['type'].toString(),
+    enabled: enabled,
+  );
+
+  Future<void> _setAllAuthenticatorApps(
+    List<Map<String, dynamic>> apps, {
+    required bool enabled,
+  }) async {
+    if (_bulkBusy) return;
+    final targets = apps
+        .where((item) => (item['frozen'] == true) != !enabled)
+        .toList(growable: false);
+    if (targets.isEmpty) return;
+
+    setState(() {
+      _bulkBusy = true;
+      _bulkProgress = 0;
+      _bulkTotal = targets.length;
+    });
+
+    var succeeded = 0;
+    var failed = 0;
+    for (final item in targets) {
+      try {
+        if (await _setAuthenticatorEnabled(item, enabled)) {
+          succeeded++;
+        } else {
+          failed++;
+        }
+      } catch (_) {
+        failed++;
+      }
+      if (mounted) setState(() => _bulkProgress++);
+    }
+
+    if (!mounted) return;
+    setState(() => _bulkBusy = false);
+    _reload();
+    final message = tr(
+      context,
+      'bulk_freeze_result',
+    ).replaceAll('{success}', '$succeeded').replaceAll('{failed}', '$failed');
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _removeAccount(Map<String, dynamic> account) async {
@@ -2527,6 +2592,11 @@ class _AccountManagementPageState extends State<AccountManagementPage>
         final accounts = value['accounts'] as List<Map<String, dynamic>>;
         final authenticators =
             value['authenticators'] as List<Map<String, dynamic>>;
+        final accountApps = _uniqueAuthenticatorApps(authenticators);
+        final frozenCount = accountApps
+            .where((item) => item['frozen'] == true)
+            .length;
+        final enabledCount = accountApps.length - frozenCount;
         return RefreshIndicator(
           onRefresh: () async => _reload(),
           child: ListView(
@@ -2536,15 +2606,99 @@ class _AccountManagementPageState extends State<AccountManagementPage>
                 title: tr(context, 'authenticators'),
                 description: tr(context, 'authenticators_description'),
               ),
-              if (authenticators.isEmpty)
+              if (accountApps.isEmpty)
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Text(tr(context, 'no_data')),
                 ),
-              for (var index = 0; index < authenticators.length; index++)
+              if (accountApps.isNotEmpty)
+                Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                tr(context, 'freeze_state_summary')
+                                    .replaceAll('{frozen}', '$frozenCount')
+                                    .replaceAll('{enabled}', '$enabledCount'),
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                    ),
+                              ),
+                            ),
+                            if (_bulkBusy)
+                              SizedBox.square(
+                                dimension: 20,
+                                child: CircularProgressIndicator(
+                                  value: _bulkTotal == 0
+                                      ? null
+                                      : _bulkProgress / _bulkTotal,
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                          ],
+                        ),
+                        if (_bulkBusy) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            tr(context, 'bulk_freeze_progress')
+                                .replaceAll('{current}', '$_bulkProgress')
+                                .replaceAll('{total}', '$_bulkTotal'),
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: DhizukuPressFeedback(
+                                enabled: !_bulkBusy && enabledCount > 0,
+                                child: FilledButton.tonalIcon(
+                                  onPressed: !_bulkBusy && enabledCount > 0
+                                      ? () => _setAllAuthenticatorApps(
+                                          accountApps,
+                                          enabled: false,
+                                        )
+                                      : null,
+                                  icon: const Icon(Icons.pause_rounded),
+                                  label: Text(tr(context, 'freeze_all')),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: DhizukuPressFeedback(
+                                enabled: !_bulkBusy && frozenCount > 0,
+                                child: FilledButton.tonalIcon(
+                                  onPressed: !_bulkBusy && frozenCount > 0
+                                      ? () => _setAllAuthenticatorApps(
+                                          accountApps,
+                                          enabled: true,
+                                        )
+                                      : null,
+                                  icon: const Icon(Icons.play_arrow_rounded),
+                                  label: Text(tr(context, 'unfreeze_all')),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              for (var index = 0; index < accountApps.length; index++)
                 _AnimatedEntry(
                   key: ValueKey(
-                    'authenticator-${authenticators[index]['packageName']}',
+                    'authenticator-${accountApps[index]['packageName']}',
                   ),
                   index: index,
                   animate: index < 8,
@@ -2553,15 +2707,16 @@ class _AccountManagementPageState extends State<AccountManagementPage>
                     child: _AnimatedSwitchRow(
                       leading: _packageIcon(
                         context,
-                        authenticators[index]['icon'],
+                        accountApps[index]['icon'],
                         fallback: Icons.extension_outlined,
                         size: 44,
                       ),
-                      title: _authenticatorLabel(authenticators[index]),
-                      subtitle: authenticators[index]['packageName'].toString(),
-                      value: authenticators[index]['frozen'] != true,
+                      title: _authenticatorLabel(accountApps[index]),
+                      subtitle: accountApps[index]['packageName'].toString(),
+                      value: accountApps[index]['frozen'] != true,
+                      enabled: !_bulkBusy,
                       onChanged: (enabled) =>
-                          _toggleAuthenticator(authenticators[index], enabled),
+                          _toggleAuthenticator(accountApps[index], enabled),
                     ),
                   ),
                 ),
@@ -2578,7 +2733,7 @@ class _AccountManagementPageState extends State<AccountManagementPage>
               for (var index = 0; index < accounts.length; index++)
                 _AnimatedEntry(
                   key: ValueKey('account-${accounts[index]['name']}-$index'),
-                  index: authenticators.length + index,
+                  index: accountApps.length + index,
                   animate: index < 8,
                   child: Card(
                     margin: const EdgeInsets.only(bottom: 12),
@@ -2589,8 +2744,19 @@ class _AccountManagementPageState extends State<AccountManagementPage>
                         fallback: Icons.account_circle_outlined,
                         size: 44,
                       ),
-                      title: Text(_accountName(accounts[index])),
-                      subtitle: Text(_accountProviderLabel(accounts[index])),
+                      title: Text(
+                        _accountName(accounts[index]),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        _accountProviderLabel(accounts[index]),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
                       trailing: DhizukuPressFeedback(
                         child: IconButton.filledTonal(
                           style: IconButton.styleFrom(
@@ -2891,6 +3057,53 @@ class _ActivationPageState extends State<ActivationPage> {
       (item) => _adminKey(item) == selectedKey,
     );
     setState(() => _busy = true);
+    if (_mode == 'shizuku' && _ownerType == 'device') {
+      List<Map<String, dynamic>>? accountRows;
+      try {
+        accountRows =
+            (await DhizukuApi.getAccountData(0))['accounts']
+                as List<Map<String, dynamic>>;
+      } catch (_) {}
+      if (accountRows?.isNotEmpty == true) {
+        setState(() => _busy = false);
+        final openAccounts = await showDhizukuDialog<bool>(
+          context,
+          (dialogContext) => prism.AlertDialog(
+            title: tr(dialogContext, 'activation_failed'),
+            actions: [
+              DhizukuTextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: Text(tr(dialogContext, 'cancel')),
+              ),
+              DhizukuTextButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: Text(tr(dialogContext, 'guide_open_accounts')),
+              ),
+            ],
+            child: Text(
+              tr(
+                dialogContext,
+                'activation_accounts_remaining',
+              ).replaceAll('{count}', '${accountRows!.length}'),
+            ),
+          ),
+        );
+        if (openAccounts == true && mounted) {
+          try {
+            final opened = await DhizukuApi.openSystemAccountSettings();
+            if (!opened && mounted) {
+              _showActionError(
+                context,
+                tr(context, 'system_accounts_unavailable'),
+              );
+            }
+          } catch (error) {
+            if (mounted) _showActionError(context, error);
+          }
+        }
+        return;
+      }
+    }
     bool? confirmed;
     try {
       confirmed = await showDhizukuDialog<bool>(
@@ -3700,7 +3913,15 @@ class _LoadError extends StatelessWidget {
 }
 
 void _showActionError(BuildContext context, Object error) {
-  ScaffoldMessenger.maybeOf(
-    context,
-  )?.showSnackBar(SnackBar(content: Text('${tr(context, 'error')}: $error')));
+  final colors = Theme.of(context).colorScheme;
+  ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+    SnackBar(
+      backgroundColor: colors.errorContainer,
+      content: Text(
+        '${tr(context, 'error')}: $error',
+        style: Theme.of(context).textTheme.bodyMedium
+            ?.copyWith(color: colors.onErrorContainer),
+      ),
+    ),
+  );
 }
