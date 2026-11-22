@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/physics.dart';
 import 'package:flutter/services.dart';
 import 'package:prism_ui/icons/icons.dart' show Glyph, GlyphIcon, Glyphs;
 import 'package:prism_ui/prism_ui.dart' as prism;
@@ -1682,6 +1683,153 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
   );
 }
 
+final _segmentSpring = SpringDescription.withDurationAndBounce(
+  duration: const Duration(milliseconds: 420),
+  bounce: 0.15,
+);
+
+class _SpringSegmentedControl<T> extends StatefulWidget {
+  const _SpringSegmentedControl({
+    required this.segments,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final List<(T, String)> segments;
+  final T value;
+  final ValueChanged<T> onChanged;
+
+  @override
+  State<_SpringSegmentedControl<T>> createState() =>
+      _SpringSegmentedControlState<T>();
+}
+
+class _SpringSegmentedControlState<T> extends State<_SpringSegmentedControl<T>>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _position = AnimationController.unbounded(
+    vsync: this,
+    value: _selectedIndex.toDouble(),
+  );
+
+  int get _selectedIndex {
+    final index = widget.segments.indexWhere(
+      (segment) => segment.$1 == widget.value,
+    );
+    return index < 0 ? 0 : index;
+  }
+
+  @override
+  void didUpdateWidget(covariant _SpringSegmentedControl<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.value != oldWidget.value) {
+      _position.animateWith(
+        SpringSimulation(
+          _segmentSpring,
+          _position.value,
+          _selectedIndex.toDouble(),
+          _position.velocity,
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _position.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final count = widget.segments.length;
+    return Container(
+      height: 52,
+      padding: const EdgeInsets.all(4),
+      decoration: ShapeDecoration(
+        color: colors.surfaceContainerLow,
+        shape: prism.AppShape.full,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(999),
+        child: Stack(
+          children: [
+            AnimatedBuilder(
+              animation: _position,
+              builder: (context, child) => Align(
+                alignment: AlignmentDirectional(
+                  count <= 1 ? 0 : _position.value * 2 / (count - 1) - 1,
+                  0,
+                ),
+                child: child,
+              ),
+              child: FractionallySizedBox(
+                widthFactor: count == 0 ? 1 : 1 / count,
+                heightFactor: 1,
+                child: DecoratedBox(
+                  decoration: ShapeDecoration(
+                    color: colors.primary,
+                    shape: prism.AppShape.full,
+                  ),
+                ),
+              ),
+            ),
+            Row(
+              children: [
+                for (final (option, label) in widget.segments)
+                  Expanded(
+                    child: Builder(
+                      builder: (context) {
+                        final selected = option == widget.value;
+                        return prism.PressSurface(
+                          fill: Colors.transparent,
+                          shape: prism.AppShape.full,
+                          look: selected
+                              ? prism.PressLook.none
+                              : prism.PressLook.ink,
+                          ringStandsOff: selected,
+                          selected: selected,
+                          childFills: true,
+                          onPressed: selected
+                              ? () {}
+                              : () {
+                                  HapticFeedback.selectionClick();
+                                  widget.onChanged(option);
+                                },
+                          child: Center(
+                            child: AnimatedScale(
+                              scale: selected ? 1.04 : 1,
+                              duration: const Duration(milliseconds: 220),
+                              curve: Curves.easeOutBack,
+                              child: AnimatedDefaultTextStyle(
+                                duration: const Duration(milliseconds: 180),
+                                style: Theme.of(context).textTheme.labelLarge!
+                                    .copyWith(
+                                      color: selected
+                                          ? colors.onPrimary
+                                          : colors.onSurfaceVariant,
+                                    ),
+                                child: Text(
+                                  label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class ActivationPage extends StatefulWidget {
   const ActivationPage({required this.initialMode, super.key});
 
@@ -1943,7 +2091,7 @@ class _ActivationPageState extends State<ActivationPage> {
                 child: Column(
                   children: [
                     _SectionTitle(tr(context, 'owner_type')),
-                    prism.SegmentedControl<String>(
+                    _SpringSegmentedControl<String>(
                       segments: [
                         ('device', tr(context, 'device')),
                         ('profile', tr(context, 'profile')),
@@ -1961,7 +2109,7 @@ class _ActivationPageState extends State<ActivationPage> {
               child: Column(
                 children: [
                   _SectionTitle(tr(context, 'activation_mode')),
-                  prism.SegmentedControl<String>(
+                  _SpringSegmentedControl<String>(
                     segments: [
                       ('dhizuku', tr(context, 'dhizuku_mode')),
                       ('shizuku', tr(context, 'shizuku_mode')),
