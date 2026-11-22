@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/physics.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:prism_ui/prism_ui.dart' as prism;
@@ -14,14 +15,6 @@ import 'texts.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const DhizukuApp());
-}
-
-class _PrismColorSchemeTween extends Tween<prism.ColorScheme> {
-  _PrismColorSchemeTween(prism.ColorScheme scheme)
-    : super(begin: scheme, end: scheme);
-
-  @override
-  prism.ColorScheme lerp(double t) => prism.ColorScheme.lerp(begin!, end!, t);
 }
 
 class DhizukuApp extends StatefulWidget {
@@ -56,8 +49,7 @@ class _DhizukuAppState extends State<DhizukuApp> {
         theme: _theme(Brightness.light),
         darkTheme: _theme(Brightness.dark),
         themeMode: _appearance.themeMode,
-        themeAnimationDuration: const Duration(milliseconds: 420),
-        themeAnimationCurve: Curves.easeInOutCubic,
+        themeAnimationDuration: Duration.zero,
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
         supportedLocales: const [Locale('en'), Locale('zh')],
         home: BootstrapPage(appearance: _appearance),
@@ -67,22 +59,16 @@ class _DhizukuAppState extends State<DhizukuApp> {
             brightness: Theme.of(context).brightness,
             style: _colorStyle,
           );
-          return TweenAnimationBuilder<prism.ColorScheme>(
-            tween: _PrismColorSchemeTween(scheme),
-            duration: const Duration(milliseconds: 420),
-            curve: Curves.easeInOutCubic,
-            builder: (context, colorScheme, child) => prism.Theme(
-              data: prism.ThemeData(colorScheme: colorScheme),
-              child: prism.LiquidGlassScope(
+          return prism.Theme(
+            data: prism.ThemeData(colorScheme: scheme),
+            child: prism.LiquidGlassScope(
+              enabled: true,
+              quality: prism.LiquidGlassQuality.standard,
+              child: prism.LiquidGlassHost(
                 enabled: true,
-                quality: prism.LiquidGlassQuality.standard,
-                child: prism.LiquidGlassHost(
-                  enabled: true,
-                  child: child ?? const SizedBox.shrink(),
-                ),
+                child: child ?? const SizedBox.shrink(),
               ),
             ),
-            child: child,
           );
         },
       ),
@@ -404,7 +390,10 @@ class DhizukuShell extends StatefulWidget {
 class _DhizukuShellState extends State<DhizukuShell> {
   int _selected = 0;
   DateTime? _lastBackPress;
+  Timer? _backPromptTimer;
+  bool _programmaticPageChange = false;
   final PageController _pageController = PageController();
+  final ValueNotifier<int> _dockSelected = ValueNotifier(0);
   late Map<String, dynamic> _homeData = widget.initialData;
   late Map<String, dynamic> _settings = Map<String, dynamic>.from(
     widget.initialData['settings'] as Map? ?? const {},
@@ -425,11 +414,12 @@ class _DhizukuShellState extends State<DhizukuShell> {
   void _selectPage(int index) {
     if (index < 0 || index >= 4) return;
     if (_selected != index) {
-      _lastBackPress = null;
-      setState(() => _selected = index);
+      _clearBackExitPrompt();
     }
     if (!_pageController.hasClients) return;
     if (_pageController.page?.round() == index) return;
+    _programmaticPageChange = true;
+    _dockSelected.value = index;
     unawaited(
       _pageController.animateToPage(
         index,
@@ -442,18 +432,26 @@ class _DhizukuShellState extends State<DhizukuShell> {
   void _handleBackPress() {
     final now = DateTime.now();
     if (_lastBackPress != null &&
-        now.difference(_lastBackPress!) <= const Duration(seconds: 2)) {
+        now.difference(_lastBackPress!) <= const Duration(seconds: 1)) {
+      _clearBackExitPrompt();
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
       SystemNavigator.pop();
       return;
     }
+    _backPromptTimer?.cancel();
     _lastBackPress = now;
     final wide = MediaQuery.sizeOf(context).width >= 720;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(tr(context, 'press_back_again_to_exit')),
-          duration: const Duration(seconds: 2),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+          content: _BackExitPromptCard(
+            text: tr(context, 'press_back_again_to_exit'),
+          ),
+          duration: const Duration(seconds: 1),
           behavior: SnackBarBehavior.floating,
           margin: EdgeInsets.fromLTRB(
             16,
@@ -461,20 +459,26 @@ class _DhizukuShellState extends State<DhizukuShell> {
             16,
             wide ? 16 : prism.NavigationDock.insetOf(context) + 16,
           ),
-          action: SnackBarAction(
-            label: tr(context, 'cancel'),
-            onPressed: () {
-              _lastBackPress = null;
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            },
-          ),
         ),
       );
+    _backPromptTimer = Timer(const Duration(seconds: 1), () {
+      if (!mounted || _lastBackPress != now) return;
+      _clearBackExitPrompt();
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    });
+  }
+
+  void _clearBackExitPrompt() {
+    _lastBackPress = null;
+    _backPromptTimer?.cancel();
+    _backPromptTimer = null;
   }
 
   @override
   void dispose() {
+    _backPromptTimer?.cancel();
     _pageController.dispose();
+    _dockSelected.dispose();
     super.dispose();
   }
 
@@ -581,17 +585,46 @@ class _DhizukuShellState extends State<DhizukuShell> {
                             ? 0
                             : prism.NavigationDock.insetOf(context),
                       ),
-                      child: PageView(
-                        controller: _pageController,
-                        physics: const NeverScrollableScrollPhysics(),
-                        children: [
-                          for (var index = 0; index < pages.length; index++)
-                            _RetainedTab(
-                              key: ValueKey(index),
-                              active: index == _selected,
-                              child: pages[index],
-                            ),
-                        ],
+                      child: NotificationListener<ScrollNotification>(
+                        onNotification: (notification) {
+                          final metrics = notification.metrics;
+                          if (metrics is! PageMetrics) return false;
+                          if (notification is ScrollStartNotification &&
+                              notification.dragDetails != null) {
+                            _programmaticPageChange = false;
+                          }
+                          if (notification is! ScrollEndNotification) {
+                            return false;
+                          }
+                          final index = metrics.page?.round();
+                          if (index == null) return false;
+                          _programmaticPageChange = false;
+                          if (_dockSelected.value != index) {
+                            _dockSelected.value = index;
+                          }
+                          if (index == _selected) return false;
+                          _clearBackExitPrompt();
+                          setState(() => _selected = index);
+                          return false;
+                        },
+                        child: PageView(
+                          controller: _pageController,
+                          physics: const PageScrollPhysics(),
+                          onPageChanged: (index) {
+                            if (!_programmaticPageChange &&
+                                _dockSelected.value != index) {
+                              _dockSelected.value = index;
+                            }
+                          },
+                          children: [
+                            for (var index = 0; index < pages.length; index++)
+                              _RetainedTab(
+                                key: ValueKey(index),
+                                active: index == _selected,
+                                child: pages[index],
+                              ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -600,16 +633,24 @@ class _DhizukuShellState extends State<DhizukuShell> {
                       start: 0,
                       end: 0,
                       bottom: 0,
-                      child: prism.NavigationDock(
-                        destinations: [
-                          for (var index = 0; index < labels.length; index++)
-                            prism.NavigationDockDestination(
-                              glyph: glyphs[index],
-                              label: tr(context, labels[index]),
+                      child: ValueListenableBuilder<int>(
+                        valueListenable: _dockSelected,
+                        builder: (context, selectedIndex, _) =>
+                            prism.NavigationDock(
+                              destinations: [
+                                for (
+                                  var index = 0;
+                                  index < labels.length;
+                                  index++
+                                )
+                                  prism.NavigationDockDestination(
+                                    glyph: glyphs[index],
+                                    label: tr(context, labels[index]),
+                                  ),
+                              ],
+                              selectedIndex: selectedIndex,
+                              onSelected: _selectPage,
                             ),
-                        ],
-                        selectedIndex: _selected,
-                        onSelected: _selectPage,
                       ),
                     ),
                 ],
@@ -660,6 +701,71 @@ class _DhizukuShellState extends State<DhizukuShell> {
         if (mounted) _showError(error);
       }
     }
+  }
+}
+
+final _backPromptSpring = SpringDescription.withDurationAndBounce(
+  duration: const Duration(milliseconds: 420),
+  bounce: 0.15,
+);
+
+class _BackExitPromptCard extends StatefulWidget {
+  const _BackExitPromptCard({required this.text});
+
+  final String text;
+
+  @override
+  State<_BackExitPromptCard> createState() => _BackExitPromptCardState();
+}
+
+class _BackExitPromptCardState extends State<_BackExitPromptCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _scale = AnimationController.unbounded(
+    vsync: this,
+    value: 0.88,
+  )..animateWith(SpringSimulation(_backPromptSpring, 0.88, 1, 0));
+
+  @override
+  void dispose() {
+    _scale.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = prism.Theme.of(context).colorScheme;
+    return Center(
+      child: AnimatedBuilder(
+        animation: _scale,
+        builder: (context, child) => Transform.translate(
+          offset: Offset(0, 8 * (1 - _scale.value)),
+          child: Transform.scale(scale: _scale.value, child: child),
+        ),
+        child: prism.LiquidGlass(
+          style: prism.LiquidGlassStyle.banner(colors),
+          borderRadius: BorderRadius.circular(24),
+          steadyFrost: true,
+          shadows: [
+            BoxShadow(
+              color: colors.shadow.withValues(alpha: 0.1),
+              blurRadius: 16,
+              offset: const Offset(0, 5),
+            ),
+          ],
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Text(
+              widget.text,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: colors.onSurface,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

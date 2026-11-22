@@ -1936,6 +1936,12 @@ class _AppearanceSettingsCard extends StatelessWidget {
       (label: 'theme_green', color: 0xff386a20, system: false),
       (label: 'theme_orange', color: 0xffa05b00, system: false),
       (label: 'theme_rose', color: 0xffb3265e, system: false),
+      (label: 'theme_indigo', color: 0xff4f5bb5, system: false),
+      (label: 'theme_cyan', color: 0xff008b9a, system: false),
+      (label: 'theme_mint', color: 0xff26745a, system: false),
+      (label: 'theme_red', color: 0xffb3261e, system: false),
+      (label: 'theme_amber', color: 0xff8a6200, system: false),
+      (label: 'theme_graphite', color: 0xff59636e, system: false),
     ];
     return Card(
       shape: prism.AppShape.xxl.copyWith(
@@ -1947,7 +1953,7 @@ class _AppearanceSettingsCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             AnimatedContainer(
-              duration: const Duration(milliseconds: 320),
+              duration: const Duration(milliseconds: 180),
               curve: Curves.easeOutCubic,
               decoration: ShapeDecoration(
                 color: preview.primaryContainer,
@@ -1957,7 +1963,7 @@ class _AppearanceSettingsCard extends StatelessWidget {
               child: Row(
                 children: [
                   AnimatedContainer(
-                    duration: const Duration(milliseconds: 320),
+                    duration: const Duration(milliseconds: 180),
                     width: 42,
                     height: 42,
                     decoration: ShapeDecoration(
@@ -2209,8 +2215,8 @@ class _ThemeColorSelector extends StatelessWidget {
               child: Stack(
                 children: [
                   AnimatedAlign(
-                    duration: const Duration(milliseconds: 420),
-                    curve: Curves.easeOutBack,
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOutCubic,
                     alignment: AlignmentDirectional(
                       count == 1 ? 0 : selected * 2 / (count - 1) - 1,
                       0,
@@ -3789,12 +3795,15 @@ class _AnimatedEntry extends StatefulWidget {
 
 class _AnimatedEntryState extends State<_AnimatedEntry> {
   Timer? _timer;
-  bool _visible = false;
+  bool _visible = true;
 
   @override
   void initState() {
     super.initState();
-    if (widget.active) _scheduleEntry();
+    if (widget.active) {
+      _visible = false;
+      _scheduleEntry();
+    }
   }
 
   void _scheduleEntry() {
@@ -3806,11 +3815,7 @@ class _AnimatedEntryState extends State<_AnimatedEntry> {
   @override
   void didUpdateWidget(covariant _AnimatedEntry oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!oldWidget.active && widget.active) {
-      _timer?.cancel();
-      _visible = false;
-      _scheduleEntry();
-    } else if (oldWidget.active && !widget.active) {
+    if (oldWidget.active && !widget.active) {
       _timer?.cancel();
       _visible = true;
     }

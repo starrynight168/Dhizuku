@@ -45,7 +45,7 @@ class AppearanceSettings extends ChangeNotifier {
     _colorStyle = colorStyle ?? _colorStyle;
     notifyListeners();
     try {
-      _apply(
+      final changed = _apply(
         await DhizukuApi.setAppearance(
           themeMode: _themeMode.name,
           useSystemColor: _useSystemColor,
@@ -53,6 +53,7 @@ class AppearanceSettings extends ChangeNotifier {
           colorStyle: _colorStyle,
         ),
       );
+      if (changed) notifyListeners();
     } catch (_) {
       _themeMode = previous.mode;
       _useSystemColor = previous.system;
@@ -61,10 +62,16 @@ class AppearanceSettings extends ChangeNotifier {
       notifyListeners();
       rethrow;
     }
-    notifyListeners();
   }
 
-  void _apply(Map<String, dynamic> values) {
+  bool _apply(Map<String, dynamic> values) {
+    final previous = (
+      mode: _themeMode,
+      system: _useSystemColor,
+      seed: _seedColor,
+      systemSeed: _systemSeedColor,
+      style: _colorStyle,
+    );
     _themeMode = switch (values['themeMode']) {
       'light' => ThemeMode.light,
       'dark' => ThemeMode.dark,
@@ -75,5 +82,10 @@ class AppearanceSettings extends ChangeNotifier {
     _useSystemColor =
         values['useSystemColor'] != false && _systemSeedColor != null;
     _colorStyle = values['colorStyle']?.toString() ?? _colorStyle;
+    return previous.mode != _themeMode ||
+        previous.system != _useSystemColor ||
+        previous.seed != _seedColor ||
+        previous.systemSeed != _systemSeedColor ||
+        previous.style != _colorStyle;
   }
 }
