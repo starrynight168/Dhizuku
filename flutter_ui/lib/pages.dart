@@ -47,6 +47,20 @@ Future<T?> showDhizukuDialog<T>(
   dismissible: dismissible,
 );
 
+Future<T?> showActivationDialog<T>(
+  BuildContext context,
+  WidgetBuilder builder, {
+  bool dismissible = true,
+}) => showDialog<T>(
+  context: context,
+  barrierColor: context.colorScheme.alertScrim,
+  barrierDismissible: dismissible,
+  builder: (dialogContext) => prism.SurfaceScope(
+    level: prism.SurfaceLevel.floatingOf(dialogContext.colorScheme),
+    child: Builder(builder: builder),
+  ),
+);
+
 Widget _packageIcon(
   BuildContext context,
   Object? bytes, {
@@ -1919,7 +1933,7 @@ class _ActivationPageState extends State<ActivationPage> {
       setState(() => _ownerType = value);
       return;
     }
-    final confirmed = await showDhizukuDialog<bool>(
+    final confirmed = await showActivationDialog<bool>(
       context,
       (context) => prism.AlertDialog(
         title: tr(context, 'profile_owner_warning_title'),
@@ -1960,7 +1974,7 @@ class _ActivationPageState extends State<ActivationPage> {
     setState(() => _busy = true);
     bool? confirmed;
     try {
-      confirmed = await showDhizukuDialog<bool>(
+      confirmed = await showActivationDialog<bool>(
         context,
         (context) => prism.AlertDialog(
           title: tr(context, 'activate'),
@@ -1994,7 +2008,7 @@ class _ActivationPageState extends State<ActivationPage> {
     var cancelRequested = false;
     var progressOpen = true;
     unawaited(
-      showDhizukuDialog<void>(
+      showActivationDialog<void>(
         context,
         (dialogContext) => PopScope(
           canPop: false,
@@ -2051,7 +2065,7 @@ class _ActivationPageState extends State<ActivationPage> {
         return;
       }
       if (!mounted) return;
-      await showDhizukuDialog<void>(
+      await showActivationDialog<void>(
         context,
         (dialogContext) => prism.AlertDialog(
           title: tr(dialogContext, 'activated'),
