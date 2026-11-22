@@ -3,12 +3,14 @@ package com.rosan.dhizuku.ui.activity
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.ServiceConnection
 import android.app.admin.DevicePolicyManager
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.net.Uri
 import android.os.Build
+import android.os.IBinder
 import android.os.Process
 import android.provider.Settings
 import androidx.activity.ComponentActivity
@@ -18,7 +20,10 @@ import com.rosan.dhizuku.data.account.entity.AccountAuthenticatorEntity
 import com.rosan.dhizuku.data.account.entity.AccountEntity
 import com.rosan.dhizuku.data.account.repo.UserService
 import com.rosan.dhizuku.data.common.util.getPackageInfoForUid
+import com.rosan.dhizuku.data.common.util.requireShizukuPermissionGranted
 import com.rosan.dhizuku.data.common.util.signature
+import com.rosan.dhizuku.command.CommandUserService
+import com.rosan.dhizuku.command.ICommandUserService
 import com.rosan.dhizuku.data.settings.model.room.entity.AppEntity
 import com.rosan.dhizuku.data.settings.repo.AppRepo
 import com.rosan.dhizuku.data.settings.repo.SettingsRepo
@@ -31,11 +36,15 @@ import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import java.io.ByteArrayOutputStream
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import org.json.JSONArray
+import org.json.JSONObject
+import rikka.shizuku.Shizuku
 
 class DhizukuFlutterBridge(private val activity: ComponentActivity) :
     MethodChannel.MethodCallHandler, KoinComponent {
@@ -78,6 +87,11 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
             }
             "getSettings" -> result.success(settings())
             "setSetting" -> setSetting(call, result)
+            "getCommandFavorites" -> result.success(commandFavorites())
+            "saveCommandFavorites" -> saveCommandFavorites(call, result)
+            "runShellCommand" -> launch(result) {
+                runShellCommand(call.argument<String>("command") ?: error("Missing command"))
+            }
             "getAppearance" -> result.success(appearance())
             "setAppearance" -> setAppearance(call, result)
             "getApps" -> launch(result) { apps() }
@@ -141,6 +155,92 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
         "whitelistMode" to settingsRepo.isWhitelistMode,
         "donateButtonHidden" to settingsRepo.isDonateButtonHidden
     )
+
+    private fun commandFavorites(): List<Map<String, String>> {
+        val stored = activity.getSharedPreferences("command_console", Context.MODE_PRIVATE)
+            .getString("favorites", "[]")
+        val array = JSONArray(stored)
+        return (0 until array.length()).mapNotNull { index ->
+            val item = array.optJSONObject(index) ?: return@mapNotNull null
+            val id = item.optString("id").takeIf(String::isNotBlank) ?: return@mapNotNull null
+            val name = item.optString("name").takeIf(String::isNotBlank) ?: return@mapNotNull null
+            val command = item.optString("command").takeIf(String::isNotBlank) ?: return@mapNotNull null
+            mapOf("id" to id, "name" to name, "command" to command)
+        }
+    }
+
+    private fun saveCommandFavorites(call: MethodCall, result: MethodChannel.Result) {
+        val favorites = call.argument<List<*>>("favorites").orEmpty()
+        val array = JSONArray()
+        favorites.take(100).forEach { value ->
+            val item = value as? Map<*, *> ?: return@forEach
+            val id = item["id"] as? String ?: return@forEach
+            val name = item["name"] as? String ?: return@forEach
+            val command = item["command"] as? String ?: return@forEach
+            if (id.isBlank() || name.isBlank() || command.isBlank()) return@forEach
+            array.put(JSONObject().put("id", id).put("name", name).put("command", command))
+        }
+        activity.getSharedPreferences("command_console", Context.MODE_PRIVATE)
+            .edit().putString("favorites", array.toString()).apply()
+        result.success(null)
+    }
+
+    private suspend fun runShellCommand(command: String): Map<String, Any> =
+        requireShizukuPermissionGranted {
+            val input = command.trim()
+            val adbShell = Regex("^adb(?:\\s+-s\\s+\\S+)?\\s+shell(?:\\s+|$)", RegexOption.IGNORE_CASE)
+            val normalized = adbShell.replaceFirst(input, "").trim()
+            require(normalized.isNotBlank()) { "Enter a shell command" }
+            require(!Regex("^adb(?:\\s|$)", RegexOption.IGNORE_CASE).containsMatchIn(input) || normalized != input) {
+                "Only adb shell commands are supported; enter adb shell <command>"
+            }
+            withContext(Dispatchers.IO) {
+                val args = Shizuku.UserServiceArgs(
+                    ComponentName(activity.packageName, CommandUserService::class.java.name)
+                )
+                    .tag("dhizuku-command-console")
+                    .version(1)
+                    .daemon(false)
+                    .processNameSuffix("command")
+                val (service, connection) = suspendCancellableCoroutine<Pair<ICommandUserService, ServiceConnection>> { continuation ->
+                    val callback = object : ServiceConnection {
+                        override fun onServiceConnected(name: ComponentName, binder: IBinder) {
+                            if (continuation.isActive) {
+                                continuation.resumeWith(
+                                    Result.success(ICommandUserService.Stub.asInterface(binder) to this)
+                                )
+                            }
+                        }
+
+                        override fun onServiceDisconnected(name: ComponentName) {
+                            if (continuation.isActive) {
+                                continuation.resumeWith(
+                                    Result.failure(IllegalStateException("Shizuku command service disconnected"))
+                                )
+                            }
+                        }
+                    }
+                    try {
+                        Shizuku.bindUserService(args, callback)
+                        continuation.invokeOnCancellation {
+                            runCatching { Shizuku.unbindUserService(args, callback, true) }
+                        }
+                    } catch (error: Throwable) {
+                        continuation.resumeWith(Result.failure(error))
+                    }
+                }
+                try {
+                    val output = JSONObject(service.execute(normalized))
+                    mapOf(
+                        "stdout" to output.optString("stdout"),
+                        "stderr" to output.optString("stderr"),
+                        "exitCode" to output.optInt("exitCode", -1)
+                    )
+                } finally {
+                    runCatching { Shizuku.unbindUserService(args, connection, true) }
+                }
+            }
+        }
 
     private fun appearance(): Map<String, Any?> {
         val preferences = activity.getSharedPreferences("appearance", Context.MODE_PRIVATE)

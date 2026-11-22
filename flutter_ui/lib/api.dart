@@ -16,6 +16,20 @@ class DhizukuApi {
   static Future<Map<String, dynamic>> getSettings() async =>
       Map<String, dynamic>.from(await _channel.invokeMethod('getSettings'));
 
+  static Future<List<Map<String, dynamic>>> getCommandFavorites() async =>
+      _maps(await _channel.invokeMethod<List<dynamic>>('getCommandFavorites'));
+
+  static Future<void> saveCommandFavorites(
+    List<Map<String, String>> favorites,
+  ) => _channel.invokeMethod<void>('saveCommandFavorites', {
+    'favorites': favorites,
+  });
+
+  static Future<Map<String, dynamic>> runShellCommand(String command) async =>
+      Map<String, dynamic>.from(
+        await _channel.invokeMethod('runShellCommand', {'command': command}),
+      );
+
   static Future<Map<String, dynamic>> getAppearance() async =>
       Map<String, dynamic>.from(await _channel.invokeMethod('getAppearance'));
 

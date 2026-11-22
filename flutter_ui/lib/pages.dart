@@ -190,6 +190,14 @@ class HomePage extends StatelessWidget {
         ),
       ]);
     }
+    actions.insert(0, (
+      glyph: DhizukuGlyphs.logs,
+      title: tr(context, 'command_console'),
+      subtitle: tr(context, 'command_console_subtitle'),
+      onTap: () => Navigator.of(
+        context,
+      ).push<void>(dhizukuPageRoute<void>((_) => const CommandConsolePage())),
+    ));
     return LayoutBuilder(
       builder: (context, constraints) => Center(
         child: ConstrainedBox(
@@ -339,6 +347,541 @@ class HomePage extends StatelessWidget {
         }
       }
     }
+  }
+}
+
+class CommandConsolePage extends StatefulWidget {
+  const CommandConsolePage({super.key});
+
+  @override
+  State<CommandConsolePage> createState() => _CommandConsolePageState();
+}
+
+class _CommandConsolePageState extends State<CommandConsolePage> {
+  final _commandController = TextEditingController();
+  final _scrollController = ScrollController();
+  List<Map<String, dynamic>> _favorites = [];
+  Map<String, dynamic>? _result;
+  String? _error;
+  bool _loadingFavorites = true;
+  bool _running = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFavorites();
+  }
+
+  @override
+  void dispose() {
+    _commandController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadFavorites() async {
+    try {
+      final favorites = await DhizukuApi.getCommandFavorites();
+      if (mounted) setState(() => _favorites = favorites);
+    } catch (error) {
+      if (mounted) _showMessage('$error');
+    } finally {
+      if (mounted) setState(() => _loadingFavorites = false);
+    }
+  }
+
+  Future<void> _saveFavorites(List<Map<String, dynamic>> favorites) async {
+    final stored = favorites
+        .map(
+          (favorite) => <String, String>{
+            'id': favorite['id'].toString(),
+            'name': favorite['name'].toString(),
+            'command': favorite['command'].toString(),
+          },
+        )
+        .toList();
+    try {
+      await DhizukuApi.saveCommandFavorites(stored);
+      if (mounted) setState(() => _favorites = favorites);
+    } catch (error) {
+      if (mounted) _showMessage('$error');
+    }
+  }
+
+  Future<void> _run([String? command]) async {
+    final value = (command ?? _commandController.text).trim();
+    if (value.isEmpty || _running) return;
+    setState(() {
+      _running = true;
+      _result = null;
+      _error = null;
+    });
+    try {
+      final result = await DhizukuApi.runShellCommand(value);
+      if (mounted) setState(() => _result = result);
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _running = false);
+    }
+  }
+
+  Future<Map<String, String>?> _editFavorite({
+    Map<String, dynamic>? favorite,
+  }) async {
+    final nameController = TextEditingController(
+      text: favorite?['name']?.toString() ?? '',
+    );
+    final commandController = TextEditingController(
+      text: favorite?['command']?.toString() ?? _commandController.text,
+    );
+    final formKey = GlobalKey<FormState>();
+    final value = await showDhizukuDialog<Map<String, String>>(
+      context,
+      (dialogContext) => prism.AlertDialog(
+        title: tr(
+          dialogContext,
+          favorite == null ? 'command_save_favorite' : 'command_edit_favorite',
+        ),
+        actions: [
+          DhizukuTextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(tr(dialogContext, 'cancel')),
+          ),
+          DhizukuTextButton(
+            onPressed: () {
+              if (formKey.currentState?.validate() != true) return;
+              Navigator.pop(dialogContext, {
+                'name': nameController.text.trim(),
+                'command': commandController.text.trim(),
+              });
+            },
+            child: Text(tr(dialogContext, 'save')),
+          ),
+        ],
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(dialogContext).height * 0.55,
+          ),
+          child: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: nameController,
+                    autofocus: favorite == null,
+                    textInputAction: TextInputAction.next,
+                    decoration: InputDecoration(
+                      labelText: tr(dialogContext, 'command_name'),
+                      hintText: tr(dialogContext, 'command_name_hint'),
+                    ),
+                    validator: (text) => text?.trim().isNotEmpty == true
+                        ? null
+                        : tr(dialogContext, 'command_required'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: commandController,
+                    minLines: 2,
+                    maxLines: 5,
+                    keyboardType: TextInputType.multiline,
+                    decoration: InputDecoration(
+                      labelText: tr(dialogContext, 'command_input'),
+                    ),
+                    validator: (text) => text?.trim().isNotEmpty == true
+                        ? null
+                        : tr(dialogContext, 'command_required'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    nameController.dispose();
+    commandController.dispose();
+    return value;
+  }
+
+  Future<void> _saveCurrentCommand({Map<String, dynamic>? favorite}) async {
+    final value = await _editFavorite(favorite: favorite);
+    if (value == null) return;
+    final id =
+        favorite?['id']?.toString() ??
+        DateTime.now().microsecondsSinceEpoch.toString();
+    final updated = [..._favorites];
+    final index = updated.indexWhere((item) => item['id'] == id);
+    final item = <String, dynamic>{
+      'id': id,
+      'name': value['name'],
+      'command': value['command'],
+    };
+    if (index < 0) {
+      updated.insert(0, item);
+    } else {
+      updated[index] = item;
+    }
+    await _saveFavorites(updated);
+    if (mounted) _showMessage(tr(context, 'command_favorite_saved'));
+  }
+
+  Future<void> _deleteFavorite(Map<String, dynamic> favorite) async {
+    final confirmed = await showDhizukuDialog<bool>(
+      context,
+      (dialogContext) => prism.AlertDialog(
+        title: tr(dialogContext, 'command_delete_title'),
+        destructive: true,
+        actions: [
+          DhizukuTextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(tr(dialogContext, 'cancel')),
+          ),
+          DhizukuTextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(tr(dialogContext, 'command_delete_favorite')),
+          ),
+        ],
+        child: Text(tr(dialogContext, 'command_delete_body')),
+      ),
+    );
+    if (confirmed != true) return;
+    await _saveFavorites(
+      _favorites.where((item) => item['id'] != favorite['id']).toList(),
+    );
+    if (mounted) _showMessage(tr(context, 'command_favorite_deleted'));
+  }
+
+  Future<void> _showFavoriteActions(Map<String, dynamic> favorite) async {
+    final action = await showDhizukuDialog<String>(
+      context,
+      (dialogContext) => prism.AlertDialog(
+        title: tr(dialogContext, 'more_options'),
+        actions: [
+          DhizukuTextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(tr(dialogContext, 'cancel')),
+          ),
+        ],
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _InteractiveListRow(
+              leading: const Icon(Icons.edit_outlined),
+              title: Text(tr(dialogContext, 'command_edit_favorite')),
+              onPressed: () => Navigator.pop(dialogContext, 'edit'),
+            ),
+            const Divider(height: 1),
+            _InteractiveListRow(
+              leading: Icon(
+                Icons.delete_outline_rounded,
+                color: Theme.of(dialogContext).colorScheme.error,
+              ),
+              title: Text(
+                tr(dialogContext, 'command_delete_favorite'),
+                style: TextStyle(
+                  color: Theme.of(dialogContext).colorScheme.error,
+                ),
+              ),
+              onPressed: () => Navigator.pop(dialogContext, 'delete'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (action == 'edit') {
+      await _saveCurrentCommand(favorite: favorite);
+    } else if (action == 'delete') {
+      await _deleteFavorite(favorite);
+    }
+  }
+
+  void _selectFavorite(Map<String, dynamic> favorite) {
+    final command = favorite['command'].toString();
+    setState(() {
+      _commandController.value = TextEditingValue(
+        text: command,
+        selection: TextSelection.collapsed(offset: command.length),
+      );
+      _result = null;
+      _error = null;
+    });
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+    );
+    _showMessage(tr(context, 'command_select_favorite'));
+  }
+
+  String _outputText() {
+    if (_error != null) return _error!;
+    final stdout = (_result?['stdout']?.toString() ?? '').trimRight();
+    final stderr = (_result?['stderr']?.toString() ?? '').trimRight();
+    return [
+      if (stdout.isNotEmpty) stdout,
+      if (stderr.isNotEmpty) '${tr(context, 'command_stderr')}:\n$stderr',
+      if (stdout.isEmpty && stderr.isEmpty) tr(context, 'command_empty_output'),
+    ].join('\n\n');
+  }
+
+  Future<void> _copyOutput() async {
+    final exitCode = _result?['exitCode'];
+    final errorLines = _error == null ? null : <String>[_error!];
+    final content = [
+      ...?errorLines,
+      if (_result?['stdout']?.toString().isNotEmpty == true)
+        _result!['stdout'].toString(),
+      if (_result?['stderr']?.toString().isNotEmpty == true)
+        '${tr(context, 'command_stderr')}:\n${_result!['stderr']}',
+      if (exitCode != null)
+        tr(context, 'command_exit_code').replaceAll('{code}', '$exitCode'),
+    ].join('\n\n');
+    await Clipboard.setData(ClipboardData(text: content));
+    if (mounted) _showMessage(tr(context, 'command_output_copied'));
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = prism.Theme.of(context).colorScheme;
+    final output = _outputText();
+    return Scaffold(
+      appBar: AppBar(title: Text(tr(context, 'command_console'))),
+      body: ListView(
+        controller: _scrollController,
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+        children: [
+          _DashboardCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  tr(context, 'command_requirements'),
+                  style: Theme.of(context).textTheme.bodyMedium
+                      ?.copyWith(color: colors.onSurfaceVariant),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  tr(context, 'command_security_note'),
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(color: colors.onSurfaceVariant),
+                ),
+                const SizedBox(height: 18),
+                TextField(
+                  controller: _commandController,
+                  onChanged: (_) => setState(() {}),
+                  minLines: 2,
+                  maxLines: 6,
+                  keyboardType: TextInputType.multiline,
+                  style: const TextStyle(fontFamily: 'monospace'),
+                  decoration: InputDecoration(
+                    labelText: tr(context, 'command_input'),
+                    hintText: tr(context, 'command_hint'),
+                    alignLabelWithHint: true,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(22),
+                      borderSide: BorderSide(color: colors.outlineVariant),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(22),
+                      borderSide: BorderSide(color: colors.outlineVariant),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                DhizukuPressSurface(
+                  fill: colors.primary,
+                  shape: prism.AppShape.all(28),
+                  onPressed: _running || _commandController.text.trim().isEmpty
+                      ? null
+                      : _run,
+                  childFills: true,
+                  minimum: const BoxConstraints(minHeight: 54),
+                  child: Center(
+                    child: _running
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox.square(
+                                dimension: 19,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: colors.onPrimary,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                tr(context, 'command_running'),
+                                style: TextStyle(color: colors.onPrimary),
+                              ),
+                            ],
+                          )
+                        : Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.play_arrow_rounded,
+                                color: colors.onPrimary,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                tr(context, 'command_run'),
+                                style: TextStyle(color: colors.onPrimary),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: DhizukuTextButton(
+                    onPressed: _commandController.text.trim().isEmpty
+                        ? null
+                        : _saveCurrentCommand,
+                    child: Text(tr(context, 'command_add_favorite')),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (_result != null || _error != null) ...[
+            const SizedBox(height: 12),
+            _DashboardCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          tr(context, 'command_output'),
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ),
+                      DhizukuIconButton(
+                        tooltip: tr(context, 'command_copy_output'),
+                        onPressed: _copyOutput,
+                        icon: const Icon(Icons.copy_rounded),
+                      ),
+                    ],
+                  ),
+                  if (_result?['exitCode'] != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        tr(
+                          context,
+                          'command_exit_code',
+                        ).replaceAll('{code}', '${_result!['exitCode']}'),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: (_result!['exitCode'] as num) == 0
+                              ? colors.onSurfaceVariant
+                              : colors.error,
+                        ),
+                      ),
+                    ),
+                  SelectableText(
+                    output,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontFamily: 'monospace',
+                      color: _error == null ? colors.onSurface : colors.error,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          _DashboardCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsetsDirectional.fromSTEB(20, 12, 8, 4),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          tr(context, 'command_favorites'),
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ),
+                      DhizukuIconButton(
+                        tooltip: tr(context, 'command_add_favorite'),
+                        onPressed: _saveCurrentCommand,
+                        icon: const Icon(Icons.add_rounded),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_loadingFavorites)
+                  const Padding(
+                    padding: EdgeInsets.all(20),
+                    child: CircularProgressIndicator(),
+                  )
+                else if (_favorites.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 22),
+                    child: Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: Text(
+                        tr(context, 'command_favorites_empty'),
+                        style: Theme.of(context).textTheme.bodyMedium
+                            ?.copyWith(color: colors.onSurfaceVariant),
+                      ),
+                    ),
+                  )
+                else
+                  for (var index = 0; index < _favorites.length; index++) ...[
+                    _InteractiveListRow(
+                      leading: Icon(
+                        Icons.bookmark_outline_rounded,
+                        color: colors.onSurfaceVariant,
+                      ),
+                      title: Text(_favorites[index]['name'].toString()),
+                      subtitle: Text(
+                        _favorites[index]['command'].toString(),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontFamily: 'monospace'),
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          DhizukuIconButton(
+                            tooltip: tr(context, 'command_run'),
+                            onPressed: () =>
+                                _run(_favorites[index]['command'].toString()),
+                            icon: const Icon(Icons.play_arrow_rounded),
+                          ),
+                          DhizukuIconButton(
+                            tooltip: tr(context, 'more_options'),
+                            onPressed: () =>
+                                _showFavoriteActions(_favorites[index]),
+                            icon: const Icon(Icons.more_vert_rounded),
+                          ),
+                        ],
+                      ),
+                      onPressed: () => _selectFavorite(_favorites[index]),
+                    ),
+                    if (index < _favorites.length - 1)
+                      const Divider(indent: 72, endIndent: 20, height: 1),
+                  ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
