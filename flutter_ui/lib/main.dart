@@ -71,12 +71,21 @@ class _DhizukuAppState extends State<DhizukuApp> with WidgetsBindingObserver {
         theme: _theme(Brightness.light),
         darkTheme: _theme(Brightness.dark),
         themeMode: _appearance.themeMode,
+        themeAnimationDuration: Duration.zero,
         liquidGlass: prism.LiquidGlassQuality.standard,
         localizationsDelegates: const [
           DhizukuPrismLocalizationsDelegate(),
           DefaultWidgetsLocalizations.delegate,
         ],
         supportedLocales: const [Locale('en'), Locale('zh')],
+        builder: (context, child) {
+          final size = MediaQuery.sizeOf(context);
+          return prism.ViewScope(
+            size: size,
+            isMobile: size.width < 720,
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
         home: BootstrapPage(appearance: _appearance),
       ),
     );

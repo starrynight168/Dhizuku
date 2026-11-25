@@ -85,44 +85,21 @@ Future<T?> showDhizukuBottomSheet<T>(
   required WidgetBuilder builder,
   bool isScrollControlled = false,
   bool useSafeArea = true,
-}) => showGeneralDialog<T>(
-  context: context,
-  barrierColor: context.colorScheme.modalScrim,
-  barrierDismissible: true,
-  barrierLabel: prism.UiLocalizations.of(context).close,
-  transitionDuration: AppMotion.durationFor(
-    context,
-    AppMotion.bottomSheetDuration,
-  ),
-  pageBuilder: (sheetContext, _, _) {
-    final content = Builder(
-      builder: (scopeContext) => prism.SurfaceScope(
-        level: prism.SurfaceLevel.floatingOf(
-          prism.Theme.of(scopeContext).colorScheme,
-        ),
-        child: Align(
-          alignment: Alignment.bottomCenter,
+}) => Navigator.of(context).push<T>(
+  prism.SnapSheetRoute<T>(
+    sheetBarrierColor: context.colorScheme.modalScrim,
+    barrierLabel: prism.UiLocalizations.of(context).close,
+    fitsContent: true,
+    builder: (sheetContext, _) {
+      final content = Builder(
+        builder: (scopeContext) => prism.SurfaceScope(
+          level: prism.SurfaceLevel.floatingOf(
+            prism.Theme.of(scopeContext).colorScheme,
+          ),
           child: Builder(builder: builder),
         ),
-      ),
-    );
-    return useSafeArea ? SafeArea(bottom: false, child: content) : content;
-  },
-  transitionBuilder: (context, animation, _, child) {
-    final curved = CurvedAnimation(
-      parent: animation,
-      curve: AppMotion.enterCurve,
-      reverseCurve: AppMotion.exitCurve,
-    );
-    return FadeTransition(
-      opacity: curved,
-      child: SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(0, 1),
-          end: Offset.zero,
-        ).animate(curved),
-        child: child,
-      ),
-    );
-  },
+      );
+      return useSafeArea ? SafeArea(bottom: false, child: content) : content;
+    },
+  ),
 );

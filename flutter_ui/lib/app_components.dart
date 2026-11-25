@@ -13,33 +13,47 @@ class DhizukuScaffold extends StatelessWidget {
     this.appBar,
     required this.body,
     this.backgroundColor,
+    this.resizeToAvoidBottomInset = true,
     super.key,
   });
 
   final Widget? appBar;
   final Widget body;
   final Color? backgroundColor;
+  final bool resizeToAvoidBottomInset;
 
   @override
   Widget build(BuildContext context) {
     final colors = prism.Theme.of(context).colorScheme;
     final resolvedBackground =
         backgroundColor ?? prism.SurfaceLevel.page.colorOf(colors);
+    final bottomInset = resizeToAvoidBottomInset
+        ? MediaQuery.viewInsetsOf(context).bottom
+        : 0.0;
+    Widget content = appBar != null
+        ? MediaQuery.removePadding(
+            context: context,
+            removeTop: true,
+            child: body,
+          )
+        : body;
+    if (resizeToAvoidBottomInset && bottomInset > 0) {
+      content = Padding(
+        padding: EdgeInsets.only(bottom: bottomInset),
+        child: MediaQuery.removeViewInsets(
+          context: context,
+          removeBottom: true,
+          child: content,
+        ),
+      );
+    }
     return prism.Surface(
       color: resolvedBackground,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ?appBar,
-          Expanded(
-            child: appBar != null
-                ? MediaQuery.removePadding(
-                    context: context,
-                    removeTop: true,
-                    child: body,
-                  )
-                : body,
-          ),
+          Expanded(child: content),
         ],
       ),
     );
@@ -264,6 +278,8 @@ class _DhizukuRefreshViewState extends State<DhizukuRefreshView> {
   static const _triggerOffset = 72.0;
 
   double _pullExtent = 0;
+  bool _dragging = false;
+  bool _armed = false;
   bool _refreshing = false;
 
   Future<void> _triggerRefresh() async {
@@ -271,6 +287,8 @@ class _DhizukuRefreshViewState extends State<DhizukuRefreshView> {
     setState(() {
       _refreshing = true;
       _pullExtent = 0;
+      _dragging = false;
+      _armed = false;
     });
     try {
       await widget.onRefresh();
@@ -283,19 +301,49 @@ class _DhizukuRefreshViewState extends State<DhizukuRefreshView> {
 
   bool _onScroll(ScrollNotification notification) {
     if (_refreshing) return false;
-    if (notification is ScrollUpdateNotification) {
+    if (notification is ScrollStartNotification) {
+      final atTop =
+          notification.metrics.pixels <= notification.metrics.minScrollExtent + 1;
+      _dragging = notification.dragDetails != null && atTop;
+      _armed = false;
+      if (_pullExtent != 0) {
+        setState(() => _pullExtent = 0);
+      }
+    } else if (notification is ScrollUpdateNotification) {
+      if (!_dragging || notification.dragDetails == null) {
+        if (_dragging) {
+          _dragging = false;
+        }
+        if (_pullExtent != 0 && !_armed) {
+          setState(() => _pullExtent = 0);
+        }
+        return false;
+      }
       final over = notification.metrics.minScrollExtent - notification.metrics.pixels;
-      if (over > 0 && over != _pullExtent) {
-        setState(() => _pullExtent = over);
-      } else if (over <= 0 && _pullExtent != 0) {
+      if (over > 0) {
+        _armed = over >= _triggerOffset;
+        if (over != _pullExtent) {
+          setState(() => _pullExtent = over);
+        }
+      } else if (_pullExtent != 0) {
+        _armed = false;
         setState(() => _pullExtent = 0);
       }
     } else if (notification is OverscrollNotification) {
-      if (notification.overscroll < 0) {
-        setState(() => _pullExtent += -notification.overscroll);
+      if (_dragging &&
+          notification.dragDetails != null &&
+          notification.overscroll < 0) {
+        final next = _pullExtent + (-notification.overscroll);
+        _armed = next >= _triggerOffset;
+        setState(() => _pullExtent = next);
+      } else if (notification.dragDetails == null && _dragging) {
+        _dragging = false;
       }
     } else if (notification is ScrollEndNotification) {
-      if (_pullExtent >= _triggerOffset) {
+      final shouldRefresh = _armed;
+      _dragging = false;
+      _armed = false;
+      if (shouldRefresh) {
         unawaited(_triggerRefresh());
       } else if (_pullExtent != 0) {
         setState(() => _pullExtent = 0);

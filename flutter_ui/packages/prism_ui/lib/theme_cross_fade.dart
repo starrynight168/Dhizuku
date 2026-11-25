@@ -44,7 +44,7 @@ class _ThemeCrossFadeState extends State<ThemeCrossFade>
   }
 
   void _capture() {
-    if (context.disableAnimations) {
+    if (widget.duration <= Duration.zero || context.disableAnimations) {
       return;
     }
     switch (WidgetsBinding.instance.lifecycleState) {

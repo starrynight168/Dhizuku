@@ -37,6 +37,7 @@ class PrismApp extends StatefulWidget {
     this.theme,
     this.darkTheme,
     this.themeMode = ThemeMode.system,
+    this.themeAnimationDuration = kThemeAnimationDuration,
     this.locale,
     this.localizationsDelegates,
     this.supportedLocales = const [Locale('en', 'US')],
@@ -62,6 +63,7 @@ class PrismApp extends StatefulWidget {
   final ThemeData? theme;
   final ThemeData? darkTheme;
   final ThemeMode themeMode;
+  final Duration themeAnimationDuration;
   final Locale? locale;
   final Iterable<LocalizationsDelegate<dynamic>>? localizationsDelegates;
   final Iterable<Locale> supportedLocales;
@@ -140,6 +142,7 @@ class _PrismAppState extends State<PrismApp> {
         selectionColor: textSelectionColorOf(theme.colorScheme),
         cursorColor: theme.colorScheme.primary,
         child: ThemeCrossFade(
+          duration: widget.themeAnimationDuration,
           child: _TextScale(
             scale: widget.textScale,
             min: widget.minTextScale,
