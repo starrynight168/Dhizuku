@@ -3,7 +3,6 @@ import 'package:flutter/widgets.dart';
 String tr(BuildContext context, String key) {
   final zh = Localizations.localeOf(context).languageCode == 'zh';
   const values = <String, List<String>>{
-    'app': ['Dhizuku', 'Dhizuku'],
     'home': ['概览', 'Home'],
     'quick_actions': ['快捷操作', 'Quick actions'],
     'command_console': ['命令行', 'Command console'],
@@ -27,7 +26,6 @@ String tr(BuildContext context, String key) {
     'command_run': ['运行命令', 'Run command'],
     'command_running': ['正在运行…', 'Running…'],
     'command_output': ['运行结果', 'Output'],
-    'command_stdout': ['标准输出', 'stdout'],
     'command_stderr': ['错误输出', 'stderr'],
     'command_empty_output': ['命令没有输出', 'Command returned no output'],
     'command_exit_code': ['退出码：{code}', 'Exit code: {code}'],
@@ -172,7 +170,6 @@ String tr(BuildContext context, String key) {
     'search': ['搜索应用', 'Search apps'],
     'api_access': ['允许 Dhizuku API', 'Allow Dhizuku API'],
     'blocked': ['阻止此应用', 'Block this app'],
-    'loading': ['正在加载…', 'Loading…'],
     'retry': ['重试', 'Retry'],
     'remove': ['移除', 'Remove'],
     'remove_user': ['删除这个用户？', 'Remove this user?'],
@@ -201,8 +198,6 @@ String tr(BuildContext context, String key) {
       '无法打开系统账户设置',
       'Could not open system account settings',
     ],
-    'freeze': ['冻结', 'Freeze'],
-    'unfreeze': ['解冻', 'Unfreeze'],
     'freeze_all': ['一键冻结', 'Freeze all'],
     'unfreeze_all': ['一键解冻', 'Unfreeze all'],
     'freeze_state_summary': [
@@ -283,7 +278,6 @@ String tr(BuildContext context, String key) {
     ],
     'activation_cancelled': ['已取消激活。', 'Activation was cancelled.'],
     'finish': ['完成', 'Finish'],
-    'permission_request': ['请求 Dhizuku API 权限', 'Dhizuku API access request'],
     'permission_request_suffix': [
       '请求访问 Dhizuku API',
       'requests Dhizuku API access',
@@ -291,7 +285,6 @@ String tr(BuildContext context, String key) {
     'auto_deny': ['秒后自动拒绝', 's until automatically denied'],
     'allow': ['允许访问', 'Allow access'],
     'deny': ['拒绝', 'Deny'],
-    'request_timeout': ['请求已超时', 'The request timed out'],
     'error': ['操作失败', 'Action failed'],
     'operation_failed': ['操作未成功', 'Operation did not complete'],
     'external_link_unavailable': [

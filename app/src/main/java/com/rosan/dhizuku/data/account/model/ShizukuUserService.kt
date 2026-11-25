@@ -10,7 +10,6 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.IUserManager
-import android.os.RemoteException
 import com.rosan.dhizuku.data.common.util.dumpText
 import com.rosan.dhizuku.data.common.util.getParcelableCompat
 import com.rosan.dhizuku.data.common.util.requireShizukuPermissionGranted
@@ -111,9 +110,6 @@ class ShizukuUserService(private val context: Context) : UserService {
                         label = label,
                         icon = icon
                     )
-                } catch (e: RemoteException) {
-                    writeLog("getAccountAuthenticators RemoteException for ${description.packageName}: ${e.message}")
-                    null
                 } catch (e: Exception) {
                     writeLog("getAccountAuthenticators exception for ${description.packageName}: ${e.message}")
                     null

@@ -1279,7 +1279,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
         if (mounted) _showActionError(context, failedMessage);
         return;
       }
-      _reload();
+      if (mounted) _reload();
     } catch (error) {
       widget.onError(error);
     }
@@ -1614,18 +1614,14 @@ class SettingsPage extends StatelessWidget {
                 leading: const GlyphIcon(DhizukuGlyphs.notifications),
                 title: Text(tr(context, 'notifications')),
                 trailing: const GlyphIcon(Glyphs.chevronForward),
-                onPressed: () =>
-                    const MethodChannel('com.rosan.dhizuku/bridge')
-                        .invokeMethod('requestNotificationPermission'),
+                onPressed: DhizukuApi.requestNotificationPermission,
               ),
               const DhizukuDivider(indent: 16, endIndent: 16),
               DhizukuListRow(
                 leading: const GlyphIcon(DhizukuGlyphs.battery),
                 title: Text(tr(context, 'battery_optimization')),
                 trailing: const GlyphIcon(Glyphs.chevronForward),
-                onPressed: () =>
-                    const MethodChannel('com.rosan.dhizuku/bridge')
-                        .invokeMethod('requestIgnoreBatteryOptimization'),
+                onPressed: DhizukuApi.requestIgnoreBatteryOptimization,
               ),
               const DhizukuDivider(indent: 16, endIndent: 16),
               DhizukuListRow(
@@ -2307,7 +2303,7 @@ class _AccountManagementPageState extends State<AccountManagementPage>
     try {
       final updated = await _setAuthenticatorEnabled(item, enabled);
       if (!updated) throw StateError(failedMessage);
-      _reload();
+      if (mounted) _reload();
     } catch (error) {
       if (mounted) _showActionError(context, error);
     }
@@ -2413,7 +2409,7 @@ class _AccountManagementPageState extends State<AccountManagementPage>
         final status = await DhizukuApi.removeAccount(account);
         if (status == 'removed') {
           _refreshOnResume = false;
-          _reload();
+          if (mounted) _reload();
         } else if (status == 'confirmation_required') {
           _refreshOnResume = true;
           if (mounted) {
@@ -3470,7 +3466,6 @@ class PermissionRequestPage extends StatefulWidget {
 }
 
 class _PermissionRequestPageState extends State<PermissionRequestPage> {
-  static const _channel = MethodChannel('com.rosan.dhizuku/bridge');
   static const _duration = 15;
   late int _remaining = _duration;
   Timer? _timer;
@@ -3490,7 +3485,7 @@ class _PermissionRequestPageState extends State<PermissionRequestPage> {
     if (_responded) return;
     _responded = true;
     _timer?.cancel();
-    await _channel.invokeMethod<void>('respondPermission', {'allow': allow});
+    await DhizukuApi.respondPermission(allow);
   }
 
   @override
@@ -3539,9 +3534,7 @@ class _PermissionRequestPageState extends State<PermissionRequestPage> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        widget.data['label']?.toString() ??
-                            widget.data['packageName']?.toString() ??
-                            '',
+                        widget.data['packageName']?.toString() ?? '',
                         style: prism.AppTextStyle.body.of(context),
                       ),
                       const SizedBox(height: 20),

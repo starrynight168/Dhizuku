@@ -20,7 +20,7 @@ data object DhizukuState {
     var state = State()
         private set
 
-    var admin = ComponentName(BuildConfig.APPLICATION_ID, DhizukuDAReceiver::class.java.name)
+    val admin = ComponentName(BuildConfig.APPLICATION_ID, DhizukuDAReceiver::class.java.name)
 
     fun sync(context: Context) {
         val dpm =

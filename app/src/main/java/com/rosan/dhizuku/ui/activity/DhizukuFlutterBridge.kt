@@ -29,6 +29,7 @@ import com.rosan.dhizuku.data.settings.model.room.entity.AppEntity
 import com.rosan.dhizuku.data.settings.repo.AppRepo
 import com.rosan.dhizuku.data.settings.repo.SettingsRepo
 import com.rosan.dhizuku.server.DhizukuState
+import com.rosan.dhizuku.shared.DhizukuVariables
 import com.rosan.dhizuku.ui.page.settings.activate.ActivateViewModel
 import com.rosan.dhizuku.ui.page.settings.activate.ActivateViewState
 import io.flutter.embedding.engine.FlutterEngine
@@ -126,7 +127,7 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
                 result.success(null)
                 activity.window.decorView.postDelayed({
                     activity.finish()
-                    android.os.Process.killProcess(android.os.Process.myPid())
+                    Process.killProcess(Process.myPid())
                 }, 250)
             }
             "openUrl" -> {
@@ -319,7 +320,7 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
                 val app = info.applicationInfo ?: return@mapNotNull null
                 if (info.packageName == activity.packageName) return@mapNotNull null
                 val entity = entities[app.uid]
-                val requested = info.requestedPermissions?.contains(com.rosan.dhizuku.shared.DhizukuVariables.PERMISSION_API) == true
+                val requested = info.requestedPermissions?.contains(DhizukuVariables.PERMISSION_API) == true
                 if (!requested && entity == null) return@mapNotNull null
                 mapOf(
                     "uid" to app.uid,
@@ -532,9 +533,9 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
             while (activateViewModel.state.status is ActivateViewState.Status.Running) delay(100)
         }
         val status = activateViewModel.state.status
-        if (status is ActivateViewState.Status.End) status.error?.let { throw it }
-        else return
-        if (mode == ActivateViewModel.Mode.Dhizuku) DhizukuState.sync(activity)
+        if (status !is ActivateViewState.Status.End) return
+        status.error?.let { throw it }
+        DhizukuState.sync(activity)
     }
 
     private fun launch(result: MethodChannel.Result, block: suspend () -> Any?) {

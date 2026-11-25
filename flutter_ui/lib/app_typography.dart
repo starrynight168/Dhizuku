@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:prism_ui/typography.dart' as prism;
 
+import 'api.dart';
+
 abstract final class AppTypography {
   static const double fontSizeScale = 1.0;
   static const int appFontWeightDelta = 100;
@@ -17,9 +19,8 @@ abstract final class AppTypography {
 
   static Future<void> refreshSystemWeightAdjustment() async {
     try {
-      final adjustment = await const MethodChannel('com.rosan.dhizuku/bridge')
-          .invokeMethod<int>('getSystemFontWeightAdjustment');
-      _weightAdjustment.value = adjustment ?? 0;
+      final adjustment = await DhizukuApi.getSystemFontWeightAdjustment();
+      _weightAdjustment.value = adjustment;
     } on MissingPluginException {
       _weightAdjustment.value = 0;
     } on PlatformException {

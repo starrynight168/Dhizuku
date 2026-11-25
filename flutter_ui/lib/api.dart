@@ -84,6 +84,18 @@ class DhizukuApi {
   static Future<String> removeAccount(Map<String, dynamic> account) async =>
       await _channel.invokeMethod<String>('removeAccount', account) ?? 'failed';
 
+  static Future<void> respondPermission(bool allow) =>
+      _channel.invokeMethod<void>('respondPermission', {'allow': allow});
+
+  static Future<int> getSystemFontWeightAdjustment() async =>
+      await _channel.invokeMethod<int>('getSystemFontWeightAdjustment') ?? 0;
+
+  static Future<void> requestNotificationPermission() =>
+      _channel.invokeMethod<void>('requestNotificationPermission');
+
+  static Future<void> requestIgnoreBatteryOptimization() =>
+      _channel.invokeMethod<void>('requestIgnoreBatteryOptimization');
+
   static Future<bool> openSystemAccountSettings() async =>
       await _channel.invokeMethod<bool>('openSystemAccountSettings') ?? false;
 
