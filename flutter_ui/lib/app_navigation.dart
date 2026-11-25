@@ -1,4 +1,4 @@
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/widgets.dart';
 import 'package:prism_ui/color.dart' show ColorSchemeExtension;
 import 'package:prism_ui/context.dart' show BuildContextExtension;
 import 'package:prism_ui/prism_ui.dart' as prism;
@@ -39,9 +39,7 @@ Future<T?> showDhizukuDialog<T>(
   context: context,
   barrierColor: context.colorScheme.alertScrim,
   barrierDismissible: dismissible,
-  barrierLabel: dismissible
-      ? MaterialLocalizations.of(context).modalBarrierDismissLabel
-      : null,
+  barrierLabel: dismissible ? prism.UiLocalizations.of(context).close : null,
   transitionDuration: AppMotion.durationFor(context, AppMotion.dialogDuration),
   pageBuilder: (dialogContext, _, _) => SafeArea(
     child: Center(
@@ -87,14 +85,44 @@ Future<T?> showDhizukuBottomSheet<T>(
   required WidgetBuilder builder,
   bool isScrollControlled = false,
   bool useSafeArea = true,
-}) => showModalBottomSheet<T>(
+}) => showGeneralDialog<T>(
   context: context,
-  isScrollControlled: isScrollControlled,
-  useSafeArea: useSafeArea,
-  backgroundColor: Colors.transparent,
   barrierColor: context.colorScheme.modalScrim,
-  sheetAnimationStyle: MediaQuery.disableAnimationsOf(context)
-      ? AnimationStyle.noAnimation
-      : AppMotion.bottomSheetAnimation,
-  builder: builder,
+  barrierDismissible: true,
+  barrierLabel: prism.UiLocalizations.of(context).close,
+  transitionDuration: AppMotion.durationFor(
+    context,
+    AppMotion.bottomSheetDuration,
+  ),
+  pageBuilder: (sheetContext, _, _) {
+    final content = Builder(
+      builder: (scopeContext) => prism.SurfaceScope(
+        level: prism.SurfaceLevel.floatingOf(
+          prism.Theme.of(scopeContext).colorScheme,
+        ),
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: Builder(builder: builder),
+        ),
+      ),
+    );
+    return useSafeArea ? SafeArea(bottom: false, child: content) : content;
+  },
+  transitionBuilder: (context, animation, _, child) {
+    final curved = CurvedAnimation(
+      parent: animation,
+      curve: AppMotion.enterCurve,
+      reverseCurve: AppMotion.exitCurve,
+    );
+    return FadeTransition(
+      opacity: curved,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 1),
+          end: Offset.zero,
+        ).animate(curved),
+        child: child,
+      ),
+    );
+  },
 );

@@ -1,11 +1,347 @@
 import 'dart:async';
 
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/widgets.dart';
+import 'package:prism_ui/icons/icons.dart' show GlyphIcon, Glyphs;
 import 'package:prism_ui/prism_ui.dart' as prism;
 
 import 'app_motion.dart';
 import 'app_typography.dart';
 import 'press_feedback.dart';
+
+class DhizukuScaffold extends StatelessWidget {
+  const DhizukuScaffold({
+    this.appBar,
+    required this.body,
+    this.backgroundColor,
+    super.key,
+  });
+
+  final Widget? appBar;
+  final Widget body;
+  final Color? backgroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = prism.Theme.of(context).colorScheme;
+    final resolvedBackground =
+        backgroundColor ?? prism.SurfaceLevel.page.colorOf(colors);
+    return prism.Surface(
+      color: resolvedBackground,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ?appBar,
+          Expanded(
+            child: appBar != null
+                ? MediaQuery.removePadding(
+                    context: context,
+                    removeTop: true,
+                    child: body,
+                  )
+                : body,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class DhizukuAppBar extends StatelessWidget {
+  const DhizukuAppBar({
+    required this.title,
+    this.actions = const [],
+    this.leading,
+    this.automaticallyImplyLeading = true,
+    super.key,
+  });
+
+  final Widget title;
+  final List<Widget> actions;
+  final Widget? leading;
+  final bool automaticallyImplyLeading;
+
+  @override
+  Widget build(BuildContext context) {
+    final canPop = automaticallyImplyLeading && Navigator.of(context).canPop();
+    final effectiveLeading =
+        leading ??
+        (canPop
+            ? DhizukuIconButton(
+                tooltip: prism.UiLocalizations.of(context).back,
+                onPressed: () => Navigator.of(context).maybePop(),
+                icon: const GlyphIcon(Glyphs.arrowBack),
+              )
+            : null);
+    return prism.AppBar(
+      leading: effectiveLeading,
+      title: title,
+      actions: actions,
+    );
+  }
+}
+
+class DhizukuCard extends StatelessWidget {
+  const DhizukuCard({
+    required this.child,
+    this.margin,
+    this.shape,
+    this.onPressed,
+    super.key,
+  });
+
+  final Widget child;
+  final EdgeInsetsGeometry? margin;
+  final OutlinedBorder? shape;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final card = prism.Card(
+      inert: onPressed == null,
+      onPressed: onPressed,
+      shape: shape ?? prism.AppShape.xxl,
+      child: child,
+    );
+    if (margin == null) return card;
+    return Padding(padding: margin!, child: card);
+  }
+}
+
+class DhizukuDivider extends StatelessWidget {
+  const DhizukuDivider({
+    this.height = 1,
+    this.thickness = 1,
+    this.indent = 0,
+    this.endIndent = 0,
+    super.key,
+  });
+
+  final double height;
+  final double thickness;
+  final double indent;
+  final double endIndent;
+
+  @override
+  Widget build(BuildContext context) {
+    final divider = prism.Divider(height: height, thickness: thickness);
+    if (indent == 0 && endIndent == 0) return divider;
+    return Padding(
+      padding: EdgeInsetsDirectional.only(start: indent, end: endIndent),
+      child: divider,
+    );
+  }
+}
+
+class DhizukuTonalButton extends StatelessWidget {
+  const DhizukuTonalButton({
+    required this.onPressed,
+    required this.label,
+    this.icon,
+    this.padding,
+    super.key,
+  });
+
+  final VoidCallback? onPressed;
+  final Widget label;
+  final Widget? icon;
+  final EdgeInsetsGeometry? padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = prism.Theme.of(context).colorScheme;
+    final style = prism.ButtonStyle.from(
+      foregroundColor: colors.onSecondaryContainer,
+      backgroundColor: colors.secondaryContainer,
+      disabledForegroundColor: colors.onSurface.withValues(alpha: 0.38),
+      disabledBackgroundColor: colors.onSurface.withValues(alpha: 0.12),
+      shape: const StadiumBorder(),
+      padding: padding,
+    );
+    return DhizukuPressFeedback(
+      enabled: onPressed != null,
+      child: icon == null
+          ? prism.FilledButton(onPressed: onPressed, style: style, child: label)
+          : prism.FilledButton.icon(
+              onPressed: onPressed,
+              style: style,
+              icon: icon!,
+              label: label,
+            ),
+    );
+  }
+}
+
+class DhizukuTonalIconButton extends StatelessWidget {
+  const DhizukuTonalIconButton({
+    required this.onPressed,
+    required this.icon,
+    this.tooltip,
+    this.foregroundColor,
+    this.backgroundColor,
+    this.fixedSize = const Size(52, 40),
+    super.key,
+  });
+
+  final VoidCallback? onPressed;
+  final Widget icon;
+  final String? tooltip;
+  final Color? foregroundColor;
+  final Color? backgroundColor;
+  final Size fixedSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = prism.Theme.of(context).colorScheme;
+    final style = prism.ButtonStyle.from(
+      foregroundColor: foregroundColor ?? colors.onSecondaryContainer,
+      backgroundColor: backgroundColor ?? colors.secondaryContainer,
+      disabledForegroundColor: colors.onSurface.withValues(alpha: 0.38),
+      disabledBackgroundColor: colors.onSurface.withValues(alpha: 0.12),
+      fixedSize: fixedSize,
+      shape: const StadiumBorder(),
+    );
+    return DhizukuPressFeedback(
+      enabled: onPressed != null,
+      child: prism.IconButton.filled(
+        onPressed: onPressed,
+        icon: icon,
+        tooltip: tooltip,
+        style: style,
+      ),
+    );
+  }
+}
+
+class DhizukuLabeledField extends StatelessWidget {
+  const DhizukuLabeledField({
+    this.labelText,
+    required this.child,
+    super.key,
+  });
+
+  final String? labelText;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = labelText;
+    if (label == null || label.isEmpty) return child;
+    final colors = prism.Theme.of(context).colorScheme;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 6),
+          child: Text(
+            label,
+            style: prism.AppTextStyle.footnote
+                .of(context, emphasized: true)
+                .copyWith(color: colors.onSurfaceVariant),
+          ),
+        ),
+        child,
+      ],
+    );
+  }
+}
+
+class DhizukuRefreshView extends StatefulWidget {
+  const DhizukuRefreshView({
+    required this.onRefresh,
+    required this.child,
+    super.key,
+  });
+
+  final Future<void> Function() onRefresh;
+  final Widget child;
+
+  @override
+  State<DhizukuRefreshView> createState() => _DhizukuRefreshViewState();
+}
+
+class _DhizukuRefreshViewState extends State<DhizukuRefreshView> {
+  static const _triggerOffset = 72.0;
+
+  double _pullExtent = 0;
+  bool _refreshing = false;
+
+  Future<void> _triggerRefresh() async {
+    if (_refreshing) return;
+    setState(() {
+      _refreshing = true;
+      _pullExtent = 0;
+    });
+    try {
+      await widget.onRefresh();
+    } finally {
+      if (mounted) {
+        setState(() => _refreshing = false);
+      }
+    }
+  }
+
+  bool _onScroll(ScrollNotification notification) {
+    if (_refreshing) return false;
+    if (notification is ScrollUpdateNotification) {
+      final over = notification.metrics.minScrollExtent - notification.metrics.pixels;
+      if (over > 0 && over != _pullExtent) {
+        setState(() => _pullExtent = over);
+      } else if (over <= 0 && _pullExtent != 0) {
+        setState(() => _pullExtent = 0);
+      }
+    } else if (notification is OverscrollNotification) {
+      if (notification.overscroll < 0) {
+        setState(() => _pullExtent += -notification.overscroll);
+      }
+    } else if (notification is ScrollEndNotification) {
+      if (_pullExtent >= _triggerOffset) {
+        unawaited(_triggerRefresh());
+      } else if (_pullExtent != 0) {
+        setState(() => _pullExtent = 0);
+      }
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final showBar = _refreshing || _pullExtent > 20;
+    return Column(
+      children: [
+        AnimatedContainer(
+          duration: AppMotion.contentSwitchDuration,
+          curve: AppMotion.enterCurve,
+          height: showBar ? 36 : 0,
+          clipBehavior: Clip.hardEdge,
+          decoration: const BoxDecoration(),
+          child: showBar
+              ? Center(
+                  child: prism.ActivityIndicator(
+                    size: 18,
+                    color: prism.Theme.of(context).colorScheme.primary,
+                  ),
+                )
+              : null,
+        ),
+        Expanded(
+          child: NotificationListener<ScrollNotification>(
+            onNotification: _onScroll,
+            child: widget.child,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+void showDhizukuBanner(
+  BuildContext context,
+  String message, {
+  prism.BannerLevel level = prism.BannerLevel.info,
+}) {
+  prism.BannerHost.maybeOf(context)?.show(message, level: level);
+}
 
 class DhizukuListRow extends StatelessWidget {
   const DhizukuListRow({
@@ -25,7 +361,7 @@ class DhizukuListRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DhizukuPressSurface(
-    fill: Colors.transparent,
+    fill: prism.Colors.transparent,
     shape: prism.AppShape.xl,
     look: prism.PressLook.tint,
     onPressed: onPressed,
@@ -65,7 +401,7 @@ class DhizukuSwitchRow extends StatelessWidget {
     child: ConstrainedBox(
       constraints: BoxConstraints(minHeight: subtitle == null ? 64 : 76),
       child: DhizukuPressSurface(
-        fill: Colors.transparent,
+        fill: prism.Colors.transparent,
         shape: prism.AppShape.xl,
         look: prism.PressLook.tint,
         onPressed: enabled ? () => onChanged(!value) : null,
@@ -94,7 +430,7 @@ class DhizukuSwitchRow extends StatelessWidget {
                 ],
               ),
             ),
-            Switch(value: value, onChanged: enabled ? onChanged : null),
+            prism.Switch(value: value, onChanged: enabled ? onChanged : null),
           ],
         ),
       ),
@@ -135,9 +471,9 @@ class DhizukuDescribedSectionTitle extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
           child: Text(
             description,
-            style: AppTypography.supportingText(
-              context,
-            ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+            style: AppTypography.supportingText(context).copyWith(
+              color: prism.Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
       ],

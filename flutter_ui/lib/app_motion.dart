@@ -1,5 +1,5 @@
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter/physics.dart' as physics;
+import 'package:flutter/widgets.dart';
 import 'package:prism_ui/prism_ui.dart' as prism;
 
 abstract final class AppMotion {
@@ -49,13 +49,6 @@ abstract final class AppMotion {
         duration: selectionSpringDuration,
         bounce: 0.15,
       );
-
-  static const bottomSheetAnimation = AnimationStyle(
-    duration: bottomSheetDuration,
-    reverseDuration: bottomSheetReverseDuration,
-    curve: sheetCurve,
-    reverseCurve: sheetCurve,
-  );
 
   static Duration durationFor(BuildContext context, Duration duration) =>
       MediaQuery.disableAnimationsOf(context) ? Duration.zero : duration;

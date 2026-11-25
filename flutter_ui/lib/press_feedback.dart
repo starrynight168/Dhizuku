@@ -1,5 +1,5 @@
 import 'package:flutter/gestures.dart' show kTouchSlop;
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/widgets.dart';
 import 'package:prism_ui/prism_ui.dart' as prism;
 
 import 'app_motion.dart';
@@ -146,6 +146,6 @@ class DhizukuIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DhizukuPressFeedback(
     enabled: onPressed != null,
-    child: IconButton(onPressed: onPressed, tooltip: tooltip, icon: icon),
+    child: prism.IconButton(onPressed: onPressed, tooltip: tooltip, icon: icon),
   );
 }

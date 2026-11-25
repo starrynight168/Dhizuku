@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/services.dart';
 import 'package:prism_ui/icons/icons.dart' show Glyph, GlyphIcon, Glyphs;
@@ -16,13 +16,13 @@ import 'glyphs.dart';
 import 'press_feedback.dart';
 import 'texts.dart';
 
-Widget _packageIcon(
+Widget _packageGlyphIcon(
   BuildContext context,
   Object? bytes, {
-  required IconData fallback,
+  required Glyph fallback,
   double size = 48,
 }) {
-  final colors = Theme.of(context).colorScheme;
+  final colors = prism.Theme.of(context).colorScheme;
   return SizedBox.square(
     dimension: size,
     child: bytes is Uint8List
@@ -32,14 +32,14 @@ Widget _packageIcon(
               bytes,
               fit: BoxFit.contain,
               gaplessPlayback: true,
-              errorBuilder: (_, _, _) => Icon(
+              errorBuilder: (_, _, _) => GlyphIcon(
                 fallback,
                 size: size * 0.62,
                 color: colors.onSurfaceVariant,
               ),
             ),
           )
-        : Icon(fallback, size: size * 0.62, color: colors.onSurfaceVariant),
+        : GlyphIcon(fallback, size: size * 0.62, color: colors.onSurfaceVariant),
   );
 }
 
@@ -130,7 +130,7 @@ class HomePage extends StatelessWidget {
       builder: (context, constraints) => Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 900),
-          child: RefreshIndicator(
+          child: DhizukuRefreshView(
             onRefresh: onRefresh,
             child: ListView(
               padding: EdgeInsets.fromLTRB(
@@ -180,8 +180,7 @@ class HomePage extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   tr(context, 'quick_actions'),
-                                  style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(
+                                  style: prism.AppTextStyle.headline.of(context).copyWith(
                                         fontWeight:
                                             AppTypography.adjustFontWeight(
                                               FontWeight.w600,
@@ -208,7 +207,7 @@ class HomePage extends StatelessWidget {
                             ),
                           ),
                           if (index < actions.length - 1)
-                            const Divider(indent: 76, endIndent: 20),
+                            const DhizukuDivider(indent: 76, endIndent: 20),
                         ],
                       ],
                     ),
@@ -235,7 +234,7 @@ class HomePage extends StatelessWidget {
             child: Text(tr(context, 'confirm')),
           ),
         ],
-        child: SelectableText(
+        child: prism.SelectableText(
           'adb shell dpm set-device-owner ${_adminComponent()}',
         ),
       ),
@@ -274,8 +273,10 @@ class HomePage extends StatelessWidget {
         await onRefresh();
       } catch (error) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${tr(context, 'error')}: $error')),
+          showDhizukuBanner(
+            context,
+            '${tr(context, 'error')}: $error',
+            level: prism.BannerLevel.error,
           );
         }
       }
@@ -402,30 +403,43 @@ class _CommandConsolePageState extends State<CommandConsolePage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  TextFormField(
-                    controller: nameController,
-                    autofocus: favorite == null,
-                    textInputAction: TextInputAction.next,
-                    decoration: InputDecoration(
-                      labelText: tr(dialogContext, 'command_name'),
-                      hintText: tr(dialogContext, 'command_name_hint'),
+                  DhizukuLabeledField(
+                    labelText: tr(dialogContext, 'command_name'),
+                    child: prism.TextFormField(
+                      controller: nameController,
+                      autofocus: favorite == null,
+                      textInputAction: TextInputAction.next,
+                      decoration: prism.InputDecoration(
+                        hintText: tr(dialogContext, 'command_name_hint'),
+                        filled: true,
+                        fillColor: prism.Theme.of(dialogContext)
+                            .colorScheme
+                            .surfaceContainerHigh,
+                      ),
+                      validator: (text) => text?.trim().isNotEmpty == true
+                          ? null
+                          : tr(dialogContext, 'command_required'),
                     ),
-                    validator: (text) => text?.trim().isNotEmpty == true
-                        ? null
-                        : tr(dialogContext, 'command_required'),
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
-                    controller: commandController,
-                    minLines: 2,
-                    maxLines: 5,
-                    keyboardType: TextInputType.multiline,
-                    decoration: InputDecoration(
-                      labelText: tr(dialogContext, 'command_input'),
+                  DhizukuLabeledField(
+                    labelText: tr(dialogContext, 'command_input'),
+                    child: prism.TextFormField(
+                      controller: commandController,
+                      minLines: 2,
+                      maxLines: 5,
+                      keyboardType: TextInputType.multiline,
+                      decoration: prism.InputDecoration(
+                        hintText: tr(dialogContext, 'command_hint'),
+                        filled: true,
+                        fillColor: prism.Theme.of(dialogContext)
+                            .colorScheme
+                            .surfaceContainerHigh,
+                      ),
+                      validator: (text) => text?.trim().isNotEmpty == true
+                          ? null
+                          : tr(dialogContext, 'command_required'),
                     ),
-                    validator: (text) => text?.trim().isNotEmpty == true
-                        ? null
-                        : tr(dialogContext, 'command_required'),
                   ),
                 ],
               ),
@@ -502,20 +516,20 @@ class _CommandConsolePageState extends State<CommandConsolePage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             DhizukuListRow(
-              leading: const Icon(Icons.edit_outlined),
+              leading: const GlyphIcon(DhizukuGlyphs.edit),
               title: Text(tr(dialogContext, 'command_edit_favorite')),
               onPressed: () => Navigator.pop(dialogContext, 'edit'),
             ),
-            const Divider(height: 1),
+            const DhizukuDivider(height: 1),
             DhizukuListRow(
-              leading: Icon(
-                Icons.delete_outline_rounded,
-                color: Theme.of(dialogContext).colorScheme.error,
+              leading: GlyphIcon(
+                DhizukuGlyphs.delete,
+                color: prism.Theme.of(dialogContext).colorScheme.error,
               ),
               title: Text(
                 tr(dialogContext, 'command_delete_favorite'),
                 style: TextStyle(
-                  color: Theme.of(dialogContext).colorScheme.error,
+                  color: prism.Theme.of(dialogContext).colorScheme.error,
                 ),
               ),
               onPressed: () => Navigator.pop(dialogContext, 'delete'),
@@ -578,16 +592,15 @@ class _CommandConsolePageState extends State<CommandConsolePage> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    showDhizukuBanner(context, message);
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = prism.Theme.of(context).colorScheme;
     final output = _outputText();
-    return Scaffold(
-      appBar: AppBar(title: Text(tr(context, 'command_console'))),
+    return DhizukuScaffold(
+      appBar: DhizukuAppBar(title: Text(tr(context, 'command_console'))),
       body: ListView(
         controller: _scrollController,
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
@@ -598,34 +611,31 @@ class _CommandConsolePageState extends State<CommandConsolePage> {
               children: [
                 Text(
                   tr(context, 'command_requirements'),
-                  style: Theme.of(context).textTheme.bodyMedium
-                      ?.copyWith(color: colors.onSurfaceVariant),
+                  style: prism.AppTextStyle.callout.of(context).copyWith(color: colors.onSurfaceVariant),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   tr(context, 'command_security_note'),
-                  style: Theme.of(context).textTheme.bodySmall
-                      ?.copyWith(color: colors.onSurfaceVariant),
+                  style: prism.AppTextStyle.footnote.of(context).copyWith(color: colors.onSurfaceVariant),
                 ),
                 const SizedBox(height: 18),
-                TextField(
-                  controller: _commandController,
-                  onChanged: (_) => setState(() {}),
-                  minLines: 2,
-                  maxLines: 6,
-                  keyboardType: TextInputType.multiline,
-                  style: const TextStyle(fontFamily: 'monospace'),
-                  decoration: InputDecoration(
-                    labelText: tr(context, 'command_input'),
-                    hintText: tr(context, 'command_hint'),
-                    alignLabelWithHint: true,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(22),
-                      borderSide: BorderSide(color: colors.outlineVariant),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(22),
-                      borderSide: BorderSide(color: colors.outlineVariant),
+                DhizukuLabeledField(
+                  labelText: tr(context, 'command_input'),
+                  child: prism.TextField(
+                    controller: _commandController,
+                    onChanged: (_) => setState(() {}),
+                    minLines: 2,
+                    maxLines: 6,
+                    keyboardType: TextInputType.multiline,
+                    style: const TextStyle(fontFamily: 'monospace'),
+                    decoration: prism.InputDecoration(
+                      hintText: tr(context, 'command_hint'),
+                      filled: true,
+                      fillColor: colors.surfaceContainerHigh,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
                     ),
                   ),
                 ),
@@ -643,12 +653,9 @@ class _CommandConsolePageState extends State<CommandConsolePage> {
                         ? Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              SizedBox.square(
-                                dimension: 19,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: colors.onPrimary,
-                                ),
+                              prism.ActivityIndicator(
+                                size: 19,
+                                color: colors.onPrimary,
                               ),
                               const SizedBox(width: 12),
                               Text(
@@ -660,8 +667,8 @@ class _CommandConsolePageState extends State<CommandConsolePage> {
                         : Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(
-                                Icons.play_arrow_rounded,
+                              GlyphIcon(
+                                DhizukuGlyphs.play,
                                 color: colors.onPrimary,
                               ),
                               const SizedBox(width: 8),
@@ -697,13 +704,13 @@ class _CommandConsolePageState extends State<CommandConsolePage> {
                       Expanded(
                         child: Text(
                           tr(context, 'command_output'),
-                          style: Theme.of(context).textTheme.titleMedium,
+                          style: prism.AppTextStyle.headline.of(context),
                         ),
                       ),
                       DhizukuIconButton(
                         tooltip: tr(context, 'command_copy_output'),
                         onPressed: _copyOutput,
-                        icon: const Icon(Icons.copy_rounded),
+                        icon: const GlyphIcon(Glyphs.copy),
                       ),
                     ],
                   ),
@@ -715,16 +722,16 @@ class _CommandConsolePageState extends State<CommandConsolePage> {
                           context,
                           'command_exit_code',
                         ).replaceAll('{code}', '${_result!['exitCode']}'),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        style: prism.AppTextStyle.footnote.of(context).copyWith(
                           color: (_result!['exitCode'] as num) == 0
                               ? colors.onSurfaceVariant
                               : colors.error,
                         ),
                       ),
                     ),
-                  SelectableText(
+                  prism.SelectableText(
                     output,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    style: prism.AppTextStyle.footnote.of(context).copyWith(
                       fontFamily: 'monospace',
                       color: _error == null ? colors.onSurface : colors.error,
                     ),
@@ -745,13 +752,13 @@ class _CommandConsolePageState extends State<CommandConsolePage> {
                       Expanded(
                         child: Text(
                           tr(context, 'command_favorites'),
-                          style: Theme.of(context).textTheme.titleMedium,
+                          style: prism.AppTextStyle.headline.of(context),
                         ),
                       ),
                       DhizukuIconButton(
                         tooltip: tr(context, 'command_add_favorite'),
                         onPressed: _saveCurrentCommand,
-                        icon: const Icon(Icons.add_rounded),
+                        icon: const GlyphIcon(DhizukuGlyphs.add),
                       ),
                     ],
                   ),
@@ -759,7 +766,7 @@ class _CommandConsolePageState extends State<CommandConsolePage> {
                 if (_loadingFavorites)
                   const Padding(
                     padding: EdgeInsets.all(20),
-                    child: CircularProgressIndicator(),
+                    child: prism.ActivityIndicator(),
                   )
                 else if (_favorites.isEmpty)
                   Padding(
@@ -768,16 +775,15 @@ class _CommandConsolePageState extends State<CommandConsolePage> {
                       alignment: AlignmentDirectional.centerStart,
                       child: Text(
                         tr(context, 'command_favorites_empty'),
-                        style: Theme.of(context).textTheme.bodyMedium
-                            ?.copyWith(color: colors.onSurfaceVariant),
+                        style: prism.AppTextStyle.callout.of(context).copyWith(color: colors.onSurfaceVariant),
                       ),
                     ),
                   )
                 else
                   for (var index = 0; index < _favorites.length; index++) ...[
                     DhizukuListRow(
-                      leading: Icon(
-                        Icons.bookmark_outline_rounded,
+                      leading: GlyphIcon(
+                        DhizukuGlyphs.bookmark,
                         color: colors.onSurfaceVariant,
                       ),
                       title: Text(_favorites[index]['name'].toString()),
@@ -794,20 +800,20 @@ class _CommandConsolePageState extends State<CommandConsolePage> {
                             tooltip: tr(context, 'command_run'),
                             onPressed: () =>
                                 _run(_favorites[index]['command'].toString()),
-                            icon: const Icon(Icons.play_arrow_rounded),
+                            icon: const GlyphIcon(DhizukuGlyphs.play),
                           ),
                           DhizukuIconButton(
                             tooltip: tr(context, 'more_options'),
                             onPressed: () =>
                                 _showFavoriteActions(_favorites[index]),
-                            icon: const Icon(Icons.more_vert_rounded),
+                            icon: const GlyphIcon(Glyphs.more),
                           ),
                         ],
                       ),
                       onPressed: () => _selectFavorite(_favorites[index]),
                     ),
                     if (index < _favorites.length - 1)
-                      const Divider(indent: 72, endIndent: 20, height: 1),
+                      const DhizukuDivider(indent: 72, endIndent: 20, height: 1),
                   ],
               ],
             ),
@@ -916,8 +922,7 @@ class _StatusPanel extends StatelessWidget {
                 children: [
                   Text(
                     'Dhizuku',
-                    style: Theme.of(context).textTheme.labelLarge
-                        ?.copyWith(color: colorScheme.onSurfaceVariant),
+                    style: prism.AppTextStyle.subheadline.of(context, emphasized: true).copyWith(color: colorScheme.onSurfaceVariant),
                   ),
                   const SizedBox(height: 3),
                   AnimatedSwitcher(
@@ -935,8 +940,7 @@ class _StatusPanel extends StatelessWidget {
                     child: Text(
                       title,
                       key: ValueKey(title),
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(
+                      style: prism.AppTextStyle.title2.of(context, emphasized: true).copyWith(
                             color: foreground,
                             fontWeight: AppTypography.adjustFontWeight(
                               FontWeight.w600,
@@ -953,14 +957,13 @@ class _StatusPanel extends StatelessWidget {
           const SizedBox(height: 20),
           Text(
             description!,
-            style: Theme.of(context).textTheme.bodyMedium
-                ?.copyWith(color: colorScheme.onSurfaceVariant),
+            style: prism.AppTextStyle.callout.of(context).copyWith(color: colorScheme.onSurfaceVariant),
           ),
         ],
         if (owner) ...[
           const SizedBox(height: 16),
           DhizukuPressSurface(
-            fill: owner ? colorScheme.primaryContainer : Colors.transparent,
+            fill: owner ? colorScheme.primaryContainer : prism.Colors.transparent,
             shape: prism.AppShape.xl,
             look: owner ? prism.PressLook.tint : prism.PressLook.none,
             onPressed: owner ? onOpenApps : null,
@@ -983,7 +986,7 @@ class _StatusPanel extends StatelessWidget {
                         owner
                             ? tr(context, 'activated')
                             : tr(context, 'not_activated'),
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        style: prism.AppTextStyle.subheadline.of(context, emphasized: true).copyWith(
                           color: owner
                               ? colorScheme.onPrimaryContainer
                               : colorScheme.onSurfaceVariant,
@@ -992,15 +995,14 @@ class _StatusPanel extends StatelessWidget {
                       if (owner)
                         Text(
                           tr(context, 'view_authorized_apps'),
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(color: colorScheme.onPrimaryContainer),
+                          style: prism.AppTextStyle.caption2.of(context).copyWith(color: colorScheme.onPrimaryContainer),
                         ),
                     ],
                   ),
                 ),
                 if (owner)
-                  Icon(
-                    Icons.chevron_right_rounded,
+                  GlyphIcon(
+                    Glyphs.chevronForward,
                     color: colorScheme.onPrimaryContainer,
                   ),
               ],
@@ -1029,7 +1031,7 @@ class _HomeActionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = prism.Theme.of(context).colorScheme;
     return DhizukuPressSurface(
-      fill: Colors.transparent,
+      fill: prism.Colors.transparent,
       shape: prism.AppShape.xl,
       onPressed: onTap,
       childFills: true,
@@ -1103,7 +1105,7 @@ class _AppManagementPageState extends State<AppManagementPage> {
             return _LoadError(error: snapshot.error!, onRetry: _reload);
           }
           if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator.adaptive());
+            return const Center(child: prism.ActivityIndicator.page());
           }
           final apps = snapshot.data!.where((app) {
             final query = _query.toLowerCase();
@@ -1117,8 +1119,7 @@ class _AppManagementPageState extends State<AppManagementPage> {
                 active: widget.active,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                  child: SearchBar(
-                    leading: const Icon(Icons.search),
+                  child: prism.SearchField(
                     hintText: tr(context, 'search'),
                     onChanged: (value) => setState(() => _query = value),
                   ),
@@ -1127,7 +1128,7 @@ class _AppManagementPageState extends State<AppManagementPage> {
               Expanded(
                 child: apps.isEmpty
                     ? Center(child: Text(tr(context, 'no_apps')))
-                    : RefreshIndicator(
+                    : DhizukuRefreshView(
                         onRefresh: () async => _reload(),
                         child: ListView.builder(
                           padding: const EdgeInsets.fromLTRB(12, 4, 12, 20),
@@ -1141,7 +1142,7 @@ class _AppManagementPageState extends State<AppManagementPage> {
                               index: index + 1,
                               active: widget.active,
                               animate: index < 8,
-                              child: Card(
+                              child: DhizukuCard(
                                 margin: const EdgeInsets.only(bottom: 12),
                                 child: Column(
                                   children: [
@@ -1161,14 +1162,29 @@ class _AppManagementPageState extends State<AppManagementPage> {
                                                   fit: BoxFit.cover,
                                                   gaplessPlayback: true,
                                                   errorBuilder: (_, _, _) =>
-                                                      const Icon(
-                                                        Icons.android,
+                                                      const GlyphIcon(
+                                                        DhizukuGlyphs.android,
                                                         size: 40,
                                                       ),
                                                 ),
                                               )
-                                            : const CircleAvatar(
-                                                child: Icon(Icons.android),
+                                            : Container(
+                                                width: 40,
+                                                height: 40,
+                                                decoration: ShapeDecoration(
+                                                  color: prism.Theme.of(context)
+                                                      .colorScheme
+                                                      .surfaceContainerHighest,
+                                                  shape: prism.AppShape.circle,
+                                                ),
+                                                alignment: Alignment.center,
+                                                child: GlyphIcon(
+                                                  DhizukuGlyphs.android,
+                                                  size: 22,
+                                                  color: prism.Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
+                                                ),
                                               ),
                                         title: Text(app['label'].toString()),
                                         subtitle: Text(
@@ -1182,7 +1198,7 @@ class _AppManagementPageState extends State<AppManagementPage> {
                                         minHeight: 80,
                                       ),
                                     ),
-                                    const Divider(indent: 20, endIndent: 20),
+                                    const DhizukuDivider(indent: 20, endIndent: 20),
                                     DhizukuSwitchRow(
                                       title: tr(context, 'api_access'),
                                       value: app['enabled'] == true && !blocked,
@@ -1278,10 +1294,10 @@ class _UserManagementPageState extends State<UserManagementPage> {
             return _LoadError(error: snapshot.error!, onRetry: _reload);
           }
           if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator.adaptive());
+            return const Center(child: prism.ActivityIndicator.page());
           }
           final users = snapshot.data!;
-          return RefreshIndicator(
+          return DhizukuRefreshView(
             onRefresh: () async => _reload(),
             child: Center(
               child: ConstrainedBox(
@@ -1293,7 +1309,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
                     DhizukuAnimatedEntry(
                       index: 0,
                       active: widget.active,
-                      child: Card(
+                      child: DhizukuCard(
                         child: Padding(
                           padding: const EdgeInsets.all(18),
                           child: Row(
@@ -1302,14 +1318,14 @@ class _UserManagementPageState extends State<UserManagementPage> {
                                 width: 48,
                                 height: 48,
                                 decoration: ShapeDecoration(
-                                  color: Theme.of(context)
+                                  color: prism.Theme.of(context)
                                       .colorScheme
                                       .primaryContainer,
                                   shape: prism.AppShape.lg,
                                 ),
-                                child: Icon(
-                                  Icons.people_alt_outlined,
-                                  color: Theme.of(context)
+                                child: GlyphIcon(
+                                  DhizukuGlyphs.users,
+                                  color: prism.Theme.of(context)
                                       .colorScheme
                                       .onPrimaryContainer,
                                 ),
@@ -1321,18 +1337,17 @@ class _UserManagementPageState extends State<UserManagementPage> {
                                   children: [
                                     Text(
                                       tr(context, 'users_title'),
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium,
+                                      style: prism.AppTextStyle.headline.of(
+                                        context,
+                                      ),
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
                                       tr(context, 'users_description'),
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                            color: Theme.of(context)
+                                      style: prism.AppTextStyle.footnote
+                                          .of(context)
+                                          .copyWith(
+                                            color: prism.Theme.of(context)
                                                 .colorScheme
                                                 .onSurfaceVariant,
                                           ),
@@ -1347,7 +1362,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
                                   vertical: 6,
                                 ),
                                 decoration: ShapeDecoration(
-                                  color: Theme.of(context)
+                                  color: prism.Theme.of(context)
                                       .colorScheme
                                       .secondaryContainer,
                                   shape: prism.AppShape.full,
@@ -1357,9 +1372,8 @@ class _UserManagementPageState extends State<UserManagementPage> {
                                     '{count}',
                                     users.length.toString(),
                                   ),
-                                  style: Theme.of(context).textTheme.labelMedium
-                                      ?.copyWith(
-                                        color: Theme.of(context)
+                                  style: prism.AppTextStyle.caption1.of(context, emphasized: true).copyWith(
+                                        color: prism.Theme.of(context)
                                             .colorScheme
                                             .onSecondaryContainer,
                                       ),
@@ -1373,14 +1387,14 @@ class _UserManagementPageState extends State<UserManagementPage> {
                     const SizedBox(height: 20),
                     DhizukuSectionTitle(tr(context, 'users_list')),
                     if (users.isEmpty)
-                      Card(
+                      DhizukuCard(
                         child: Padding(
                           padding: const EdgeInsets.all(24),
                           child: Center(child: Text(tr(context, 'no_users'))),
                         ),
                       ),
                     for (var index = 0; index < users.length; index++)
-                      _userCard(context, users[index], index),
+                      _userDhizukuCard(context, users[index], index),
                   ],
                 ),
               ),
@@ -1389,7 +1403,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
         },
       );
 
-  Widget _userCard(BuildContext context, Map<String, dynamic> user, int index) {
+  Widget _userDhizukuCard(BuildContext context, Map<String, dynamic> user, int index) {
     final current = user['current'] == true;
     final id = user['id'] as int;
     return DhizukuAnimatedEntry(
@@ -1399,19 +1413,34 @@ class _UserManagementPageState extends State<UserManagementPage> {
       animate: index < 8,
       child: Padding(
         padding: const EdgeInsets.only(bottom: 10),
-        child: Card(
+        child: DhizukuCard(
           child: Row(
             children: [
               Expanded(
                 child: DhizukuListRow(
-                  leading: CircleAvatar(
-                    backgroundColor: current
-                        ? Theme.of(context).colorScheme.primaryContainer
-                        : Theme.of(context).colorScheme.surfaceContainerHighest,
-                    foregroundColor: current
-                        ? Theme.of(context).colorScheme.onPrimaryContainer
-                        : Theme.of(context).colorScheme.onSurfaceVariant,
-                    child: const Icon(Icons.person_outline_rounded),
+                  leading: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: ShapeDecoration(
+                      color: current
+                          ? prism.Theme.of(context).colorScheme.primaryContainer
+                          : prism.Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest,
+                      shape: prism.AppShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: GlyphIcon(
+                      DhizukuGlyphs.person,
+                      size: 22,
+                      color: current
+                          ? prism.Theme.of(context)
+                              .colorScheme
+                              .onPrimaryContainer
+                          : prism.Theme.of(context)
+                              .colorScheme
+                              .onSurfaceVariant,
+                    ),
                   ),
                   title: Text(user['name'].toString()),
                   subtitle: Text(
@@ -1432,24 +1461,23 @@ class _UserManagementPageState extends State<UserManagementPage> {
                             vertical: 5,
                           ),
                           decoration: ShapeDecoration(
-                            color: Theme.of(context)
+                            color: prism.Theme.of(context)
                                 .colorScheme
                                 .secondaryContainer,
                             shape: prism.AppShape.full,
                           ),
                           child: Text(
                             tr(context, 'current_user'),
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(
-                                  color: Theme.of(context)
+                            style: prism.AppTextStyle.caption2.of(context).copyWith(
+                                  color: prism.Theme.of(context)
                                       .colorScheme
                                       .onSecondaryContainer,
                                 ),
                           ),
                         ),
-                      Icon(
-                        Icons.chevron_right_rounded,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      GlyphIcon(
+                        Glyphs.chevronForward,
+                        color: prism.Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ],
                   ),
@@ -1458,10 +1486,10 @@ class _UserManagementPageState extends State<UserManagementPage> {
               if (!current)
                 Padding(
                   padding: const EdgeInsetsDirectional.only(end: 8),
-                  child: Tooltip(
+                  child: prism.Tooltip(
                     message: tr(context, 'remove_user_action'),
                     child: DhizukuPressSurface(
-                      fill: Colors.transparent,
+                      fill: prism.Colors.transparent,
                       shape: prism.AppShape.full,
                       look: prism.PressLook.tint,
                       onPressed: () => _remove(user),
@@ -1469,9 +1497,9 @@ class _UserManagementPageState extends State<UserManagementPage> {
                         width: 48,
                         height: 48,
                       ),
-                      child: Icon(
-                        Icons.more_vert_rounded,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      child: GlyphIcon(
+                        Glyphs.more,
+                        color: prism.Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ),
@@ -1513,12 +1541,12 @@ class SettingsPage extends StatelessWidget {
       DhizukuAnimatedEntry(
         index: 0,
         active: active,
-        child: Card(
+        child: DhizukuCard(
           child: DhizukuListRow(
-            leading: const Icon(Icons.palette_outlined),
+            leading: const GlyphIcon(DhizukuGlyphs.palette),
             title: Text(tr(context, 'appearance_group')),
             subtitle: Text(tr(context, 'appearance_summary')),
-            trailing: const Icon(Icons.chevron_right_rounded),
+            trailing: const GlyphIcon(Glyphs.chevronForward),
             onPressed: () => Navigator.of(context).push(
               dhizukuPageRoute<void>(
                 (_) => AppearanceSettingsPage(appearance: appearance),
@@ -1531,12 +1559,12 @@ class SettingsPage extends StatelessWidget {
       DhizukuAnimatedEntry(
         index: 1,
         active: active,
-        child: Card(
+        child: DhizukuCard(
           child: DhizukuListRow(
-            leading: const Icon(Icons.menu_book_outlined),
+            leading: const GlyphIcon(DhizukuGlyphs.book),
             title: Text(tr(context, 'user_guide')),
             subtitle: Text(tr(context, 'guide_intro')),
-            trailing: const Icon(Icons.chevron_right_rounded),
+            trailing: const GlyphIcon(Glyphs.chevronForward),
             onPressed: () =>
                 Navigator.of(context)
                     .push(dhizukuPageRoute<void>((_) => const UserGuidePage())),
@@ -1548,7 +1576,7 @@ class SettingsPage extends StatelessWidget {
       DhizukuAnimatedEntry(
         index: 2,
         active: active,
-        child: Card(
+        child: DhizukuCard(
           child: Column(
             children: [
               DhizukuSwitchRow(
@@ -1556,14 +1584,14 @@ class SettingsPage extends StatelessWidget {
                 value: settings['dhizukuEnabled'] == true,
                 onChanged: (value) => _toggle(context, 'dhizukuEnabled', value),
               ),
-              const Divider(indent: 16, endIndent: 16),
+              const DhizukuDivider(indent: 16, endIndent: 16),
               DhizukuSwitchRow(
                 title: tr(context, 'whitelist'),
                 subtitle: tr(context, 'api_access'),
                 value: settings['whitelistMode'] == true,
                 onChanged: (value) => _toggle(context, 'whitelistMode', value),
               ),
-              const Divider(indent: 16, endIndent: 16),
+              const DhizukuDivider(indent: 16, endIndent: 16),
               DhizukuSwitchRow(
                 title: tr(context, 'hide_donate'),
                 value: settings['donateButtonHidden'] == true,
@@ -1579,48 +1607,48 @@ class SettingsPage extends StatelessWidget {
       DhizukuAnimatedEntry(
         index: 3,
         active: active,
-        child: Card(
+        child: DhizukuCard(
           child: Column(
             children: [
               DhizukuListRow(
-                leading: const Icon(Icons.notifications_outlined),
+                leading: const GlyphIcon(DhizukuGlyphs.notifications),
                 title: Text(tr(context, 'notifications')),
-                trailing: const Icon(Icons.chevron_right_rounded),
+                trailing: const GlyphIcon(Glyphs.chevronForward),
                 onPressed: () =>
                     const MethodChannel('com.rosan.dhizuku/bridge')
                         .invokeMethod('requestNotificationPermission'),
               ),
-              const Divider(indent: 16, endIndent: 16),
+              const DhizukuDivider(indent: 16, endIndent: 16),
               DhizukuListRow(
-                leading: const Icon(Icons.battery_saver_outlined),
+                leading: const GlyphIcon(DhizukuGlyphs.battery),
                 title: Text(tr(context, 'battery_optimization')),
-                trailing: const Icon(Icons.chevron_right_rounded),
+                trailing: const GlyphIcon(Glyphs.chevronForward),
                 onPressed: () =>
                     const MethodChannel('com.rosan.dhizuku/bridge')
                         .invokeMethod('requestIgnoreBatteryOptimization'),
               ),
-              const Divider(indent: 16, endIndent: 16),
+              const DhizukuDivider(indent: 16, endIndent: 16),
               DhizukuListRow(
-                leading: const Icon(Icons.favorite_outline),
+                leading: const GlyphIcon(DhizukuGlyphs.heart),
                 title: Text(tr(context, 'donate')),
-                trailing: const Icon(Icons.open_in_new_rounded),
+                trailing: const GlyphIcon(DhizukuGlyphs.openInNew),
                 onPressed: () =>
                     DhizukuApi.openUrl(tr(context, 'donation_url')),
               ),
-              const Divider(indent: 16, endIndent: 16),
+              const DhizukuDivider(indent: 16, endIndent: 16),
               DhizukuListRow(
-                leading: const Icon(Icons.description_outlined),
+                leading: const GlyphIcon(DhizukuGlyphs.description),
                 title: Text(tr(context, 'terms')),
-                trailing: const Icon(Icons.open_in_new_rounded),
+                trailing: const GlyphIcon(DhizukuGlyphs.openInNew),
                 onPressed: () => DhizukuApi.openUrl(
                   'https://iamr0s.github.io/Dhizuku/TERMS.html',
                 ),
               ),
-              const Divider(indent: 16, endIndent: 16),
+              const DhizukuDivider(indent: 16, endIndent: 16),
               DhizukuListRow(
-                leading: const Icon(Icons.privacy_tip_outlined),
+                leading: const GlyphIcon(DhizukuGlyphs.privacy),
                 title: Text(tr(context, 'privacy')),
-                trailing: const Icon(Icons.open_in_new_rounded),
+                trailing: const GlyphIcon(DhizukuGlyphs.openInNew),
                 onPressed: () => DhizukuApi.openUrl(
                   'https://iamr0s.github.io/Dhizuku/PRIVACY.html',
                 ),
@@ -1648,8 +1676,8 @@ class UserGuidePage extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(tr(context, 'user_guide'))),
+  Widget build(BuildContext context) => DhizukuScaffold(
+    appBar: DhizukuAppBar(title: Text(tr(context, 'user_guide'))),
     body: ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
       children: [
@@ -1662,9 +1690,9 @@ class UserGuidePage extends StatelessWidget {
           index: 1,
           title: tr(context, 'guide_accounts_title'),
           body: tr(context, 'guide_accounts_body'),
-          action: FilledButton.tonalIcon(
+          action: DhizukuTonalButton(
             onPressed: () => _openAccounts(context),
-            icon: const Icon(Icons.settings_outlined),
+            icon: const GlyphIcon(DhizukuGlyphs.settings),
             label: Text(tr(context, 'guide_open_accounts')),
           ),
         ),
@@ -1694,16 +1722,16 @@ class _GuideSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DhizukuAnimatedEntry(
     index: index,
-    child: Card(
+    child: DhizukuCard(
       margin: const EdgeInsets.only(bottom: 16),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
+            Text(title, style: prism.AppTextStyle.headline.of(context)),
             const SizedBox(height: 12),
-            Text(body, style: Theme.of(context).textTheme.bodyLarge),
+            Text(body, style: prism.AppTextStyle.body.of(context)),
             if (action != null) ...[const SizedBox(height: 16), action!],
           ],
         ),
@@ -1718,8 +1746,8 @@ class AppearanceSettingsPage extends StatelessWidget {
   final AppearanceSettings appearance;
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(tr(context, 'appearance_group'))),
+  Widget build(BuildContext context) => DhizukuScaffold(
+    appBar: DhizukuAppBar(title: Text(tr(context, 'appearance_group'))),
     body: Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 720),
@@ -1755,7 +1783,7 @@ class _AppearanceSettingsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final colors = prism.Theme.of(context).colorScheme;
     final colorStyle = prism.ColorStyle.values.firstWhere(
       (style) => style.name == appearance.colorStyle,
       orElse: () => prism.ColorStyle.vivid,
@@ -1781,7 +1809,7 @@ class _AppearanceSettingsCard extends StatelessWidget {
       (label: 'theme_amber', color: 0xff8a6200, system: false),
       (label: 'theme_graphite', color: 0xff59636e, system: false),
     ];
-    return Card(
+    return DhizukuCard(
       shape: prism.AppShape.xxl.copyWith(
         side: BorderSide(color: colors.outlineVariant.withValues(alpha: 0.7)),
       ),
@@ -1808,8 +1836,8 @@ class _AppearanceSettingsCard extends StatelessWidget {
                       color: preview.primary,
                       shape: prism.AppShape.lg,
                     ),
-                    child: Icon(
-                      Icons.auto_awesome_rounded,
+                    child: GlyphIcon(
+                      DhizukuGlyphs.sparkle,
                       color: preview.onPrimary,
                     ),
                   ),
@@ -1820,14 +1848,12 @@ class _AppearanceSettingsCard extends StatelessWidget {
                       children: [
                         Text(
                           tr(context, 'theme_preview'),
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(color: preview.onPrimaryContainer),
+                          style: prism.AppTextStyle.subheadline.of(context, emphasized: true).copyWith(color: preview.onPrimaryContainer),
                         ),
                         const SizedBox(height: 3),
                         Text(
                           tr(context, 'theme_preview_subtitle'),
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: preview.onPrimaryContainer),
+                          style: prism.AppTextStyle.footnote.of(context).copyWith(color: preview.onPrimaryContainer),
                         ),
                       ],
                     ),
@@ -1844,8 +1870,7 @@ class _AppearanceSettingsCard extends StatelessWidget {
                       ),
                       child: Text(
                         tr(context, 'theme_preview_button'),
-                        style: Theme.of(context).textTheme.labelLarge
-                            ?.copyWith(color: preview.onPrimary),
+                        style: prism.AppTextStyle.subheadline.of(context, emphasized: true).copyWith(color: preview.onPrimary),
                       ),
                     ),
                   ),
@@ -1856,11 +1881,11 @@ class _AppearanceSettingsCard extends StatelessWidget {
             DhizukuSectionTitle(tr(context, 'theme_mode')),
             SizedBox(
               width: double.infinity,
-              child: _ThemeSegmentedControl<ThemeMode>(
+              child: _ThemeSegmentedControl<prism.ThemeMode>(
                 segments: [
-                  (ThemeMode.system, tr(context, 'theme_system')),
-                  (ThemeMode.light, tr(context, 'theme_light')),
-                  (ThemeMode.dark, tr(context, 'theme_dark')),
+                  (prism.ThemeMode.system, tr(context, 'theme_system')),
+                  (prism.ThemeMode.light, tr(context, 'theme_light')),
+                  (prism.ThemeMode.dark, tr(context, 'theme_dark')),
                 ],
                 value: appearance.themeMode,
                 onChanged: (value) => unawaited(
@@ -1876,7 +1901,7 @@ class _AppearanceSettingsCard extends StatelessWidget {
                   (
                     label: tr(context, option.label),
                     color: Color(option.color),
-                    icon: option.system ? Icons.auto_awesome_rounded : null,
+                    icon: option.system ? DhizukuGlyphs.sparkle : null,
                   ),
               ],
               selectedIndex: colorOptions.indexWhere(
@@ -1933,7 +1958,7 @@ class _ThemeSegmentedControl<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final colors = prism.Theme.of(context).colorScheme;
     final count = segments.length;
     final index = segments.indexWhere((segment) => segment.$1 == value);
     return Container(
@@ -1974,7 +1999,7 @@ class _ThemeSegmentedControl<T> extends StatelessWidget {
                     builder: (context) {
                       final selected = option == value;
                       return DhizukuPressSurface(
-                        fill: Colors.transparent,
+                        fill: prism.Colors.transparent,
                         shape: prism.AppShape.full,
                         look: selected
                             ? prism.PressLook.none
@@ -1985,8 +2010,7 @@ class _ThemeSegmentedControl<T> extends StatelessWidget {
                           child: AnimatedDefaultTextStyle(
                             duration: AppMotion.themeLabelDuration,
                             style:
-                                (Theme.of(context).textTheme.labelLarge ??
-                                        const TextStyle())
+                                prism.AppTextStyle.subheadline.of(context, emphasized: true)
                                     .copyWith(
                                       color: selected
                                           ? colors.onPrimary
@@ -2024,14 +2048,14 @@ class _ThemeColorSelector extends StatelessWidget {
     required this.onSelected,
   });
 
-  final List<({String label, Color color, IconData? icon})> options;
+  final List<({String label, Color color, Glyph? icon})> options;
   final int selectedIndex;
   final ValueChanged<int> onSelected;
 
   @override
   Widget build(BuildContext context) {
     if (options.isEmpty) return const SizedBox.shrink();
-    final colors = Theme.of(context).colorScheme;
+    final colors = prism.Theme.of(context).colorScheme;
     final count = options.length;
     final selected = selectedIndex.clamp(0, count - 1);
     return LayoutBuilder(
@@ -2105,15 +2129,15 @@ class _ThemeColorOption extends StatelessWidget {
     required this.onPressed,
   });
 
-  final ({String label, Color color, IconData? icon}) option;
+  final ({String label, Color color, Glyph? icon}) option;
   final bool selected;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final colors = prism.Theme.of(context).colorScheme;
     return DhizukuPressSurface(
-      fill: Colors.transparent,
+      fill: prism.Colors.transparent,
       shape: prism.AppShape.full,
       look: prism.PressLook.none,
       minimum: const BoxConstraints(minHeight: 76),
@@ -2134,24 +2158,21 @@ class _ThemeColorOption extends StatelessWidget {
                 color: option.color,
                 shape: prism.AppShape.circle.copyWith(
                   side: BorderSide(
-                    color: selected ? colors.onPrimary : Colors.transparent,
+                    color: selected ? colors.onPrimary : prism.Colors.transparent,
                     width: 2,
                   ),
                 ),
               ),
               child: option.icon == null
                   ? null
-                  : Icon(
-                      option.icon,
+                  : GlyphIcon(
+                      option.icon!,
                       size: 16,
                       color: selected
                           ? colors.onPrimary
-                          : ThemeData.estimateBrightnessForColor(
-                                  option.color,
-                                ) ==
-                                Brightness.dark
-                          ? Colors.white
-                          : Colors.black,
+                          : option.color.computeLuminance() < 0.5
+                          ? prism.Colors.white
+                          : prism.Colors.black,
                     ),
             ),
           ),
@@ -2159,7 +2180,7 @@ class _ThemeColorOption extends StatelessWidget {
           AnimatedDefaultTextStyle(
             duration: AppMotion.appearanceSelectionDuration,
             curve: AppMotion.appearanceSelectionCurve,
-            style: Theme.of(context).textTheme.labelSmall!.copyWith(
+            style: prism.AppTextStyle.caption2.of(context).copyWith(
               color: selected ? colors.onPrimary : colors.onSurfaceVariant,
               fontWeight: AppTypography.adjustFontWeight(
                 selected ? FontWeight.w600 : FontWeight.w500,
@@ -2345,8 +2366,7 @@ class _AccountManagementPageState extends State<AccountManagementPage>
       context,
       'bulk_freeze_result',
     ).replaceAll('{success}', '$succeeded').replaceAll('{failed}', '$failed');
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    showDhizukuBanner(context, message);
   }
 
   Future<void> _removeAccount(Map<String, dynamic> account) async {
@@ -2401,10 +2421,9 @@ class _AccountManagementPageState extends State<AccountManagementPage>
         } else if (status == 'confirmation_required') {
           _refreshOnResume = true;
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(tr(context, 'account_confirmation_pending')),
-              ),
+            showDhizukuBanner(
+              context,
+              tr(context, 'account_confirmation_pending'),
             );
           }
         } else {
@@ -2417,14 +2436,14 @@ class _AccountManagementPageState extends State<AccountManagementPage>
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
+  Widget build(BuildContext context) => DhizukuScaffold(
+    appBar: DhizukuAppBar(
       title: Text(widget.user['name'].toString()),
       actions: [
         DhizukuIconButton(
           tooltip: tr(context, 'open_system_accounts'),
           onPressed: _openSystemAccounts,
-          icon: const Icon(Icons.settings_outlined),
+          icon: const GlyphIcon(DhizukuGlyphs.settings),
         ),
       ],
     ),
@@ -2435,7 +2454,7 @@ class _AccountManagementPageState extends State<AccountManagementPage>
           return _LoadError(error: snapshot.error!, onRetry: _reload);
         }
         if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator.adaptive());
+          return const Center(child: prism.ActivityIndicator.page());
         }
         final value = snapshot.data!;
         final accounts = value['accounts'] as List<Map<String, dynamic>>;
@@ -2446,7 +2465,7 @@ class _AccountManagementPageState extends State<AccountManagementPage>
             .where((item) => item['frozen'] == true)
             .length;
         final enabledCount = accountApps.length - frozenCount;
-        return RefreshIndicator(
+        return DhizukuRefreshView(
           onRefresh: () async => _reload(),
           child: ListView(
             padding: const EdgeInsets.all(12),
@@ -2461,7 +2480,7 @@ class _AccountManagementPageState extends State<AccountManagementPage>
                   child: Text(tr(context, 'no_data')),
                 ),
               if (accountApps.isNotEmpty)
-                Card(
+                DhizukuCard(
                   margin: const EdgeInsets.only(bottom: 12),
                   child: Padding(
                     padding: const EdgeInsets.all(12),
@@ -2475,22 +2494,21 @@ class _AccountManagementPageState extends State<AccountManagementPage>
                                 tr(context, 'freeze_state_summary')
                                     .replaceAll('{frozen}', '$frozenCount')
                                     .replaceAll('{enabled}', '$enabledCount'),
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(
-                                      color: Theme.of(context)
+                                style: prism.AppTextStyle.callout.of(context).copyWith(
+                                      color: prism.Theme.of(context)
                                           .colorScheme
                                           .onSurfaceVariant,
                                     ),
                               ),
                             ),
                             if (_bulkBusy)
-                              SizedBox.square(
-                                dimension: 20,
-                                child: CircularProgressIndicator(
+                              SizedBox(
+                                width: 88,
+                                child: prism.LinearProgressIndicator(
                                   value: _bulkTotal == 0
                                       ? null
                                       : _bulkProgress / _bulkTotal,
-                                  strokeWidth: 2,
+                                  minHeight: 5,
                                 ),
                               ),
                           ],
@@ -2501,41 +2519,35 @@ class _AccountManagementPageState extends State<AccountManagementPage>
                             tr(context, 'bulk_freeze_progress')
                                 .replaceAll('{current}', '$_bulkProgress')
                                 .replaceAll('{total}', '$_bulkTotal'),
-                            style: Theme.of(context).textTheme.bodySmall,
+                            style: prism.AppTextStyle.footnote.of(context),
                           ),
                         ],
                         const SizedBox(height: 12),
                         Row(
                           children: [
                             Expanded(
-                              child: DhizukuPressFeedback(
-                                enabled: !_bulkBusy && enabledCount > 0,
-                                child: FilledButton.tonalIcon(
-                                  onPressed: !_bulkBusy && enabledCount > 0
-                                      ? () => _setAllAuthenticatorApps(
-                                          accountApps,
-                                          enabled: false,
-                                        )
-                                      : null,
-                                  icon: const Icon(Icons.pause_rounded),
-                                  label: Text(tr(context, 'freeze_all')),
-                                ),
+                              child: DhizukuTonalButton(
+                                onPressed: !_bulkBusy && enabledCount > 0
+                                    ? () => _setAllAuthenticatorApps(
+                                        accountApps,
+                                        enabled: false,
+                                      )
+                                    : null,
+                                icon: const GlyphIcon(DhizukuGlyphs.pause),
+                                label: Text(tr(context, 'freeze_all')),
                               ),
                             ),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: DhizukuPressFeedback(
-                                enabled: !_bulkBusy && frozenCount > 0,
-                                child: FilledButton.tonalIcon(
-                                  onPressed: !_bulkBusy && frozenCount > 0
-                                      ? () => _setAllAuthenticatorApps(
-                                          accountApps,
-                                          enabled: true,
-                                        )
-                                      : null,
-                                  icon: const Icon(Icons.play_arrow_rounded),
-                                  label: Text(tr(context, 'unfreeze_all')),
-                                ),
+                              child: DhizukuTonalButton(
+                                onPressed: !_bulkBusy && frozenCount > 0
+                                    ? () => _setAllAuthenticatorApps(
+                                        accountApps,
+                                        enabled: true,
+                                      )
+                                    : null,
+                                icon: const GlyphIcon(DhizukuGlyphs.play),
+                                label: Text(tr(context, 'unfreeze_all')),
                               ),
                             ),
                           ],
@@ -2551,13 +2563,13 @@ class _AccountManagementPageState extends State<AccountManagementPage>
                   ),
                   index: index,
                   animate: index < 8,
-                  child: Card(
+                  child: DhizukuCard(
                     margin: const EdgeInsets.only(bottom: 12),
                     child: DhizukuSwitchRow(
-                      leading: _packageIcon(
+                      leading: _packageGlyphIcon(
                         context,
                         accountApps[index]['icon'],
-                        fallback: Icons.extension_outlined,
+                        fallback: DhizukuGlyphs.extension,
                         size: 44,
                       ),
                       title: _authenticatorLabel(accountApps[index]),
@@ -2584,13 +2596,13 @@ class _AccountManagementPageState extends State<AccountManagementPage>
                   key: ValueKey('account-${accounts[index]['name']}-$index'),
                   index: accountApps.length + index,
                   animate: index < 8,
-                  child: Card(
+                  child: DhizukuCard(
                     margin: const EdgeInsets.only(bottom: 12),
                     child: DhizukuListRow(
-                      leading: _packageIcon(
+                      leading: _packageGlyphIcon(
                         context,
                         accounts[index]['icon'],
-                        fallback: Icons.account_circle_outlined,
+                        fallback: DhizukuGlyphs.accountCircle,
                         size: 44,
                       ),
                       title: Text(
@@ -2602,26 +2614,18 @@ class _AccountManagementPageState extends State<AccountManagementPage>
                         _accountProviderLabel(accounts[index]),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        style: prism.AppTextStyle.footnote.of(context).copyWith(
+                          color: prism.Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
-                      trailing: DhizukuPressFeedback(
-                        child: IconButton.filledTonal(
-                          style: IconButton.styleFrom(
-                            fixedSize: const Size(52, 40),
-                            shape: const StadiumBorder(),
-                            foregroundColor: Theme.of(context)
-                                .colorScheme
-                                .error,
-                            backgroundColor: Theme.of(context)
-                                .colorScheme
-                                .errorContainer,
-                          ),
-                          tooltip: tr(context, 'remove_account_tooltip'),
-                          onPressed: () => _removeAccount(accounts[index]),
-                          icon: const Icon(Icons.delete_outline_rounded),
-                        ),
+                      trailing: DhizukuTonalIconButton(
+                        foregroundColor:
+                            prism.Theme.of(context).colorScheme.error,
+                        backgroundColor:
+                            prism.Theme.of(context).colorScheme.errorContainer,
+                        tooltip: tr(context, 'remove_account_tooltip'),
+                        onPressed: () => _removeAccount(accounts[index]),
+                        icon: const GlyphIcon(DhizukuGlyphs.delete),
                       ),
                     ),
                   ),
@@ -2641,7 +2645,7 @@ class _ActivationChoiceCards<T> extends StatefulWidget {
     required this.onChanged,
   });
 
-  final List<(T, String, IconData)> choices;
+  final List<(T, String, Glyph)> choices;
   final T value;
   final ValueChanged<T> onChanged;
 
@@ -2679,7 +2683,7 @@ class _ActivationChoiceCardsState<T> extends State<_ActivationChoiceCards<T>>
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final colors = prism.Theme.of(context).colorScheme;
     return Row(
       children: [
         for (var index = 0; index < widget.choices.length; index++) ...[
@@ -2716,7 +2720,7 @@ class _ActivationChoiceCardsState<T> extends State<_ActivationChoiceCards<T>>
                           : const [],
                     ),
                     child: DhizukuPressSurface(
-                      fill: Colors.transparent,
+                      fill: prism.Colors.transparent,
                       shape: prism.AppShape.xl,
                       look: selected
                           ? prism.PressLook.none
@@ -2742,7 +2746,7 @@ class _ActivationChoiceCardsState<T> extends State<_ActivationChoiceCards<T>>
                                     scale: selected ? 1.08 : 1,
                                     duration: AppMotion.contentSwitchDuration,
                                     curve: AppMotion.activationSelectionCurve,
-                                    child: Icon(
+                                    child: GlyphIcon(
                                       icon,
                                       size: 24,
                                       color: selected
@@ -2756,10 +2760,7 @@ class _ActivationChoiceCardsState<T> extends State<_ActivationChoiceCards<T>>
                                     textAlign: TextAlign.center,
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelLarge
-                                        ?.copyWith(
+                                    style: prism.AppTextStyle.subheadline.of(context, emphasized: true).copyWith(
                                           color: selected
                                               ? colors.onPrimaryContainer
                                               : colors.onSurface,
@@ -2787,8 +2788,8 @@ class _ActivationChoiceCardsState<T> extends State<_ActivationChoiceCards<T>>
                                       ),
                                     ),
                                 child: selected
-                                    ? Icon(
-                                        Icons.check_circle_rounded,
+                                    ? GlyphIcon(
+                                        DhizukuGlyphs.checkCircle,
                                         key: const ValueKey(true),
                                         size: 18,
                                         color: colors.primary,
@@ -2865,9 +2866,9 @@ class _ActivationPageState extends State<ActivationPage> {
       context,
       (context) => prism.AlertDialog(
         title: tr(context, 'profile_owner_warning_title'),
-        trailing: Icon(
-          Icons.warning_amber_rounded,
-          color: Theme.of(context).colorScheme.tertiary,
+        trailing: GlyphIcon(
+          DhizukuGlyphs.warning,
+          color: prism.Theme.of(context).colorScheme.tertiary,
         ),
         actions: [
           DhizukuTextButton(
@@ -2891,8 +2892,11 @@ class _ActivationPageState extends State<ActivationPage> {
     if (_busy) return;
     final selectedKey = _currentAdminKey(admins);
     if (selectedKey == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(tr(context, 'no_admins'))));
+      showDhizukuBanner(
+        context,
+        tr(context, 'no_admins'),
+        level: prism.BannerLevel.warning,
+      );
       return;
     }
     final selected = admins.firstWhere(
@@ -2978,8 +2982,10 @@ class _ActivationPageState extends State<ActivationPage> {
     } catch (error) {
       if (mounted) {
         setState(() => _busy = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${tr(context, 'error')}: $error')),
+        showDhizukuBanner(
+          context,
+          '${tr(context, 'error')}: $error',
+          level: prism.BannerLevel.error,
         );
       }
       return;
@@ -3021,7 +3027,7 @@ class _ActivationPageState extends State<ActivationPage> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const LinearProgressIndicator(),
+                const prism.LinearProgressIndicator(),
                 const SizedBox(height: 16),
                 Text(tr(dialogContext, 'activation_running')),
               ],
@@ -3044,9 +3050,7 @@ class _ActivationPageState extends State<ActivationPage> {
       }
       if (cancelRequested) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(tr(context, 'activation_cancelled'))),
-          );
+          showDhizukuBanner(context, tr(context, 'activation_cancelled'));
           _reload();
         }
         return;
@@ -3122,7 +3126,7 @@ class _ActivationPageState extends State<ActivationPage> {
                 const SizedBox(height: 12),
                 Text(
                   tr(dialogContext, 'error_details'),
-                  style: Theme.of(dialogContext).textTheme.labelLarge,
+                  style: prism.AppTextStyle.subheadline.of(dialogContext, emphasized: true),
                 ),
                 const SizedBox(height: 6),
                 ConstrainedBox(
@@ -3130,9 +3134,9 @@ class _ActivationPageState extends State<ActivationPage> {
                     maxHeight: MediaQuery.sizeOf(dialogContext).height * 0.22,
                   ),
                   child: SingleChildScrollView(
-                    child: SelectableText(
+                    child: prism.SelectableText(
                       details,
-                      style: Theme.of(dialogContext).textTheme.bodySmall,
+                      style: prism.AppTextStyle.footnote.of(dialogContext),
                     ),
                   ),
                 ),
@@ -3153,9 +3157,7 @@ class _ActivationPageState extends State<ActivationPage> {
         if (action == 'copy') {
           await Clipboard.setData(ClipboardData(text: details));
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(tr(context, 'error_copied'))),
-            );
+            showDhizukuBanner(context, tr(context, 'error_copied'));
           }
         }
       }
@@ -3184,8 +3186,8 @@ class _ActivationPageState extends State<ActivationPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(tr(context, 'activate'))),
+  Widget build(BuildContext context) => DhizukuScaffold(
+    appBar: DhizukuAppBar(title: Text(tr(context, 'activate'))),
     body: FutureBuilder<List<Map<String, dynamic>>>(
       future: _admins,
       builder: (context, snapshot) {
@@ -3193,7 +3195,7 @@ class _ActivationPageState extends State<ActivationPage> {
           return _LoadError(error: snapshot.error!, onRetry: _reload);
         }
         if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator.adaptive());
+          return const Center(child: prism.ActivityIndicator.page());
         }
         final admins = snapshot.data!;
         if (admins.isEmpty) {
@@ -3213,7 +3215,7 @@ class _ActivationPageState extends State<ActivationPage> {
                 children: [
                   Text(
                     tr(context, 'activation_info'),
-                    style: Theme.of(context).textTheme.bodyLarge,
+                    style: prism.AppTextStyle.body.of(context),
                   ),
                 ],
               ),
@@ -3224,12 +3226,12 @@ class _ActivationPageState extends State<ActivationPage> {
               child: Column(
                 children: [
                   DhizukuSectionTitle(tr(context, 'admin')),
-                  Card(
+                  DhizukuCard(
                     child: DhizukuListRow(
-                      leading: _packageIcon(
+                      leading: _packageGlyphIcon(
                         context,
                         selectedAdmin['icon'],
-                        fallback: Icons.admin_panel_settings_outlined,
+                        fallback: DhizukuGlyphs.adminShield,
                         size: 44,
                       ),
                       title: Text(selectedAdmin['label'].toString()),
@@ -3238,7 +3240,7 @@ class _ActivationPageState extends State<ActivationPage> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      trailing: const Icon(Icons.expand_more_rounded),
+                      trailing: const GlyphIcon(Glyphs.chevronDown),
                       onPressed: () => _chooseAdmin(admins),
                     ),
                   ),
@@ -3262,12 +3264,12 @@ class _ActivationPageState extends State<ActivationPage> {
                                 (
                                   'device',
                                   tr(context, 'device'),
-                                  Icons.phone_android_rounded,
+                                  DhizukuGlyphs.phoneAndroid,
                                 ),
                                 (
                                   'profile',
                                   tr(context, 'profile'),
-                                  Icons.workspaces_rounded,
+                                  DhizukuGlyphs.workspaces,
                                 ),
                               ],
                               value: _ownerType,
@@ -3290,12 +3292,12 @@ class _ActivationPageState extends State<ActivationPage> {
                       (
                         'dhizuku',
                         tr(context, 'dhizuku_mode'),
-                        Icons.shield_rounded,
+                        DhizukuGlyphs.shield,
                       ),
                       (
                         'shizuku',
                         tr(context, 'shizuku_mode'),
-                        Icons.terminal_rounded,
+                        DhizukuGlyphs.terminal,
                       ),
                     ],
                     value: _mode,
@@ -3314,8 +3316,8 @@ class _ActivationPageState extends State<ActivationPage> {
                             ? 'activation_dhizuku_detail'
                             : 'activation_shizuku_detail',
                       ),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      style: prism.AppTextStyle.footnote.of(context).copyWith(
+                        color: prism.Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ),
@@ -3327,20 +3329,23 @@ class _ActivationPageState extends State<ActivationPage> {
               index: 4,
               child: DhizukuPressFeedback(
                 enabled: !_busy,
-                child: FilledButton.icon(
+                child: prism.FilledButton.icon(
                   onPressed: _busy ? null : () => _activate(admins),
-                  style: const ButtonStyle(
-                    shape: WidgetStatePropertyAll(StadiumBorder()),
-                  ),
+                  style: prism.ButtonStyle.from(shape: const StadiumBorder()),
                   icon: AnimatedSwitcher(
                     duration: AppMotion.contentSwitchDuration,
                     child: _busy
-                        ? const SizedBox.square(
-                            key: ValueKey('busy'),
-                            dimension: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                        ? prism.ActivityIndicator(
+                            key: const ValueKey('busy'),
+                            size: 18,
+                            color: prism.Theme.of(context)
+                                .colorScheme
+                                .onPrimary,
                           )
-                        : const Icon(Icons.check, key: ValueKey('ready')),
+                        : const GlyphIcon(
+                            Glyphs.check,
+                            key: ValueKey('ready'),
+                          ),
                   ),
                   label: Text(tr(context, 'activate')),
                 ),
@@ -3361,8 +3366,8 @@ class _AdminPickerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Material(
+    final colors = prism.Theme.of(context).colorScheme;
+    return prism.Surface(
       color: colors.surfaceContainerLow,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -3390,13 +3395,13 @@ class _AdminPickerSheet extends StatelessWidget {
                     Expanded(
                       child: Text(
                         tr(context, 'choose_admin_app'),
-                        style: Theme.of(context).textTheme.titleLarge,
+                        style: prism.AppTextStyle.title3.of(context, emphasized: true),
                       ),
                     ),
                     DhizukuIconButton(
                       tooltip: tr(context, 'cancel'),
                       onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close_rounded),
+                      icon: const GlyphIcon(Glyphs.close),
                     ),
                   ],
                 ),
@@ -3416,16 +3421,16 @@ class _AdminPickerSheet extends StatelessWidget {
                       child: DhizukuPressSurface(
                         fill: selected
                             ? colors.secondaryContainer
-                            : Colors.transparent,
+                            : prism.Colors.transparent,
                         shape: prism.AppShape.xl,
                         look: prism.PressLook.tint,
                         onPressed: () => Navigator.pop(context, key),
                         childFills: true,
                         child: prism.ListRow(
-                          leading: _packageIcon(
+                          leading: _packageGlyphIcon(
                             context,
                             admin['icon'],
-                            fallback: Icons.admin_panel_settings_outlined,
+                            fallback: DhizukuGlyphs.adminShield,
                             size: 44,
                           ),
                           title: Text(
@@ -3439,8 +3444,8 @@ class _AdminPickerSheet extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                           trailing: selected
-                              ? Icon(
-                                  Icons.check_rounded,
+                              ? GlyphIcon(
+                                  Glyphs.check,
                                   color: colors.onSecondaryContainer,
                                 )
                               : null,
@@ -3500,7 +3505,7 @@ class _PermissionRequestPageState extends State<PermissionRequestPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => DhizukuScaffold(
     body: SafeArea(
       child: Center(
         child: ConstrainedBox(
@@ -3509,7 +3514,7 @@ class _PermissionRequestPageState extends State<PermissionRequestPage> {
             padding: const EdgeInsets.all(24),
             child: DhizukuAnimatedEntry(
               index: 0,
-              child: Card(
+              child: DhizukuCard(
                 child: Padding(
                   padding: const EdgeInsets.all(24),
                   child: Column(
@@ -3522,19 +3527,19 @@ class _PermissionRequestPageState extends State<PermissionRequestPage> {
                             widget.data['icon'] as Uint8List,
                             width: 48,
                             height: 48,
-                            errorBuilder: (_, _, _) => const Icon(
-                              Icons.privacy_tip_outlined,
+                            errorBuilder: (_, _, _) => const GlyphIcon(
+                              DhizukuGlyphs.privacy,
                               size: 40,
                             ),
                           ),
                         )
                       else
-                        const Icon(Icons.privacy_tip_outlined, size: 40),
+                        const GlyphIcon(DhizukuGlyphs.privacy, size: 40),
                       const SizedBox(height: 16),
                       Text(
                         '${widget.data['label'] ?? widget.data['packageName']} '
                         '${tr(context, 'permission_request_suffix')}',
-                        style: Theme.of(context).textTheme.titleLarge,
+                        style: prism.AppTextStyle.title3.of(context, emphasized: true),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 8),
@@ -3542,17 +3547,17 @@ class _PermissionRequestPageState extends State<PermissionRequestPage> {
                         widget.data['label']?.toString() ??
                             widget.data['packageName']?.toString() ??
                             '',
-                        style: Theme.of(context).textTheme.bodyLarge,
+                        style: prism.AppTextStyle.body.of(context),
                       ),
                       const SizedBox(height: 20),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          SizedBox.square(
-                            dimension: 18,
-                            child: CircularProgressIndicator(
+                          SizedBox(
+                            width: 56,
+                            child: prism.LinearProgressIndicator(
                               value: _remaining / _duration,
-                              strokeWidth: 2,
+                              minHeight: 5,
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -3581,7 +3586,7 @@ class _PermissionRequestPageState extends State<PermissionRequestPage> {
                         width: double.infinity,
                         child: DhizukuPressFeedback(
                           enabled: !_responded,
-                          child: FilledButton(
+                          child: prism.FilledButton(
                             onPressed: _responded ? null : () => _respond(true),
                             child: Text(tr(context, 'allow')),
                           ),
@@ -3592,11 +3597,11 @@ class _PermissionRequestPageState extends State<PermissionRequestPage> {
                         width: double.infinity,
                         child: DhizukuPressFeedback(
                           enabled: !_responded,
-                          child: FilledButton.tonal(
+                          child: DhizukuTonalButton(
                             onPressed: _responded
                                 ? null
                                 : () => _respond(false),
-                            child: Text(tr(context, 'deny')),
+                            label: Text(tr(context, 'deny')),
                           ),
                         ),
                       ),
@@ -3623,13 +3628,13 @@ class _LoadError extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.cloud_off_outlined, size: 36),
+          const GlyphIcon(DhizukuGlyphs.cloudOff, size: 36),
           const SizedBox(height: 12),
           Text(error.toString(), textAlign: TextAlign.center),
           const SizedBox(height: 12),
-          OutlinedButton.icon(
+          prism.OutlinedButton.icon(
             onPressed: onRetry,
-            icon: const Icon(Icons.refresh),
+            icon: const GlyphIcon(DhizukuGlyphs.refresh),
             label: Text(tr(context, 'retry')),
           ),
         ],
@@ -3639,15 +3644,9 @@ class _LoadError extends StatelessWidget {
 }
 
 void _showActionError(BuildContext context, Object error) {
-  final colors = Theme.of(context).colorScheme;
-  ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-    SnackBar(
-      backgroundColor: colors.errorContainer,
-      content: Text(
-        '${tr(context, 'error')}: $error',
-        style: Theme.of(context).textTheme.bodyMedium
-            ?.copyWith(color: colors.onErrorContainer),
-      ),
-    ),
+  showDhizukuBanner(
+    context,
+    '${tr(context, 'error')}: $error',
+    level: prism.BannerLevel.error,
   );
 }

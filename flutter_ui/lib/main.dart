@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/physics.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
+import 'package:prism_ui/icons/icons.dart' show Glyph, GlyphIcon;
 import 'package:prism_ui/prism_ui.dart' as prism;
 
 import 'api.dart';
+import 'app_components.dart';
 import 'app_motion.dart';
 import 'app_navigation.dart';
 import 'app_typography.dart';
@@ -14,6 +16,7 @@ import 'appearance.dart';
 import 'glyphs.dart';
 import 'pages.dart';
 import 'press_feedback.dart';
+import 'prism_localizations.dart';
 import 'texts.dart';
 
 void main() {
@@ -62,133 +65,34 @@ class _DhizukuAppState extends State<DhizukuApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _rebuildListenable,
-      builder: (context, _) => MaterialApp(
+      builder: (context, _) => prism.PrismApp(
         debugShowCheckedModeBanner: false,
         title: 'Dhizuku',
         theme: _theme(Brightness.light),
         darkTheme: _theme(Brightness.dark),
         themeMode: _appearance.themeMode,
-        themeAnimationDuration: Duration.zero,
-        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        liquidGlass: prism.LiquidGlassQuality.standard,
+        localizationsDelegates: const [
+          DhizukuPrismLocalizationsDelegate(),
+          DefaultWidgetsLocalizations.delegate,
+        ],
         supportedLocales: const [Locale('en'), Locale('zh')],
         home: BootstrapPage(appearance: _appearance),
-        builder: (context, child) {
-          final platform = Theme.of(context).platform;
-          final scheme = prism.seededColorScheme(
-            seedColor: _appearance.activeSeedColor,
-            brightness: Theme.of(context).brightness,
-            style: _colorStyle,
-          );
-          return prism.Theme(
-            data: prism.ThemeData(
-              colorScheme: scheme,
-              fontFamily: AppTypography.fontFamilyFor(platform),
-              fontWeightDelta: AppTypography.fontWeightDelta,
-              fontSizeFactor: AppTypography.fontSizeScale,
-            ),
-            child: prism.LiquidGlassScope(
-              enabled: true,
-              quality: prism.LiquidGlassQuality.standard,
-              child: prism.LiquidGlassHost(
-                enabled: true,
-                child: child ?? const SizedBox.shrink(),
-              ),
-            ),
-          );
-        },
       ),
     );
   }
 
-  ThemeData _theme(Brightness brightness) {
-    final prismScheme = prism.seededColorScheme(
+  prism.ThemeData _theme(Brightness brightness) {
+    final scheme = prism.seededColorScheme(
       seedColor: _appearance.activeSeedColor,
       brightness: brightness,
       style: _colorStyle,
     );
-    final colorScheme = ColorScheme(
-      brightness: brightness,
-      primary: prismScheme.primary,
-      onPrimary: prismScheme.onPrimary,
-      primaryContainer: prismScheme.primaryContainer,
-      onPrimaryContainer: prismScheme.onPrimaryContainer,
-      secondary: prismScheme.secondary,
-      onSecondary: prismScheme.onSecondary,
-      secondaryContainer: prismScheme.secondaryContainer,
-      onSecondaryContainer: prismScheme.onSecondaryContainer,
-      tertiary: prismScheme.tertiary,
-      onTertiary: prismScheme.onTertiary,
-      tertiaryContainer: prismScheme.tertiaryContainer,
-      onTertiaryContainer: prismScheme.onTertiaryContainer,
-      error: prismScheme.error,
-      onError: prismScheme.onError,
-      errorContainer: prismScheme.errorContainer,
-      onErrorContainer: prismScheme.onErrorContainer,
-      surface: prismScheme.surface,
-      onSurface: prismScheme.onSurface,
-      surfaceDim: prismScheme.surfaceDim,
-      surfaceBright: prismScheme.surfaceBright,
-      surfaceContainerLowest: prismScheme.surfaceContainerLowest,
-      surfaceContainerLow: prismScheme.surfaceContainerLow,
-      surfaceContainer: prismScheme.surfaceContainer,
-      surfaceContainerHigh: prismScheme.surfaceContainerHigh,
-      surfaceContainerHighest: prismScheme.surfaceContainerHighest,
-      onSurfaceVariant: prismScheme.onSurfaceVariant,
-      outline: prismScheme.outline,
-      outlineVariant: prismScheme.outlineVariant,
-      shadow: prismScheme.shadow,
-      scrim: prismScheme.scrim,
-      inverseSurface: prismScheme.inverseSurface,
-      onInverseSurface: prismScheme.onInverseSurface,
-      inversePrimary: prismScheme.inversePrimary,
-      surfaceTint: prismScheme.surfaceTint,
-    );
-    final theme = ThemeData(
-      colorScheme: colorScheme,
-      useMaterial3: true,
+    return prism.ThemeData(
+      colorScheme: scheme,
       fontFamily: AppTypography.fontFamilyFor(defaultTargetPlatform),
-      scaffoldBackgroundColor: colorScheme.surface,
-      appBarTheme: AppBarTheme(
-        backgroundColor: colorScheme.surface,
-        foregroundColor: colorScheme.onSurface,
-        centerTitle: false,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        surfaceTintColor: Colors.transparent,
-        titleTextStyle: AppTypography.appBarTitle(colorScheme.onSurface),
-      ),
-      cardTheme: CardThemeData(
-        color: colorScheme.surfaceContainerLow,
-        elevation: 0,
-        margin: EdgeInsets.zero,
-        surfaceTintColor: Colors.transparent,
-        shape: prism.AppShape.xxl,
-        clipBehavior: Clip.antiAlias,
-      ),
-      dividerTheme: DividerThemeData(
-        color: colorScheme.outlineVariant,
-        space: 1,
-        thickness: 1,
-      ),
-      navigationRailTheme: NavigationRailThemeData(
-        backgroundColor: colorScheme.surface,
-        indicatorColor: colorScheme.secondaryContainer,
-        selectedIconTheme: IconThemeData(
-          color: colorScheme.onSecondaryContainer,
-        ),
-        unselectedIconTheme: IconThemeData(color: colorScheme.onSurfaceVariant),
-      ),
-      snackBarTheme: SnackBarThemeData(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: colorScheme.surfaceContainerHigh,
-        contentTextStyle: TextStyle(color: colorScheme.onSurface),
-        actionTextColor: colorScheme.primary,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      ),
-    );
-    return theme.copyWith(
-      textTheme: AppTypography.adjustTextTheme(theme.textTheme),
-      primaryTextTheme: AppTypography.adjustTextTheme(theme.primaryTextTheme),
+      fontWeightDelta: AppTypography.fontWeightDelta,
+      fontSizeFactor: AppTypography.fontSizeScale,
     );
   }
 
@@ -237,15 +141,15 @@ class _BootstrapPageState extends State<BootstrapPage> {
       future: _initial,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return Scaffold(
+          return DhizukuScaffold(
             body: Center(
               child: Text('${tr(context, 'error')}: ${snapshot.error}'),
             ),
           );
         }
         if (!snapshot.hasData) {
-          return Scaffold(
-            body: Center(child: CircularProgressIndicator.adaptive()),
+          return const DhizukuScaffold(
+            body: Center(child: prism.ActivityIndicator.page()),
           );
         }
         final data = snapshot.data!;
@@ -292,55 +196,54 @@ class _AgreementPageState extends State<AgreementPage> {
 
   @override
   Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme;
-    return Scaffold(
+    final color = prism.Theme.of(context).colorScheme;
+    return DhizukuScaffold(
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 560),
             child: Padding(
               padding: const EdgeInsets.all(24),
-              child: Card(
+              child: DhizukuCard(
                 child: Padding(
                   padding: const EdgeInsets.all(24),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.admin_panel_settings_outlined,
+                      GlyphIcon(
+                        DhizukuGlyphs.adminShield,
                         size: 36,
                         color: color.primary,
                       ),
                       const SizedBox(height: 20),
                       Text(
                         tr(context, 'agreement_title'),
-                        style: Theme.of(context).textTheme.headlineSmall,
+                        style: prism.AppTextStyle.title2.of(
+                          context,
+                          emphasized: true,
+                        ),
                       ),
                       const SizedBox(height: 12),
                       Text(
                         tr(context, 'agreement_text'),
-                        style: Theme.of(context).textTheme.bodyLarge,
+                        style: prism.AppTextStyle.body.of(context),
                       ),
                       const SizedBox(height: 12),
                       Wrap(
                         spacing: 8,
                         children: [
-                          DhizukuPressFeedback(
-                            child: TextButton(
-                              onPressed: () => DhizukuApi.openUrl(
-                                'https://iamr0s.github.io/Dhizuku/TERMS.html',
-                              ),
-                              child: Text(tr(context, 'terms')),
+                          DhizukuTextButton(
+                            onPressed: () => DhizukuApi.openUrl(
+                              'https://iamr0s.github.io/Dhizuku/TERMS.html',
                             ),
+                            child: Text(tr(context, 'terms')),
                           ),
-                          DhizukuPressFeedback(
-                            child: TextButton(
-                              onPressed: () => DhizukuApi.openUrl(
-                                'https://iamr0s.github.io/Dhizuku/PRIVACY.html',
-                              ),
-                              child: Text(tr(context, 'privacy')),
+                          DhizukuTextButton(
+                            onPressed: () => DhizukuApi.openUrl(
+                              'https://iamr0s.github.io/Dhizuku/PRIVACY.html',
                             ),
+                            child: Text(tr(context, 'privacy')),
                           ),
                         ],
                       ),
@@ -349,14 +252,12 @@ class _AgreementPageState extends State<AgreementPage> {
                         width: double.infinity,
                         child: DhizukuPressFeedback(
                           enabled: !_saving,
-                          child: FilledButton(
+                          child: prism.FilledButton(
                             onPressed: _saving ? null : _agree,
                             child: _saving
-                                ? const SizedBox.square(
-                                    dimension: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
+                                ? prism.ActivityIndicator(
+                                    size: 18,
+                                    color: color.onPrimary,
                                   )
                                 : Text(tr(context, 'agree')),
                           ),
@@ -364,11 +265,9 @@ class _AgreementPageState extends State<AgreementPage> {
                       ),
                       Align(
                         alignment: Alignment.centerRight,
-                        child: DhizukuPressFeedback(
-                          child: TextButton(
-                            onPressed: SystemNavigator.pop,
-                            child: Text(tr(context, 'cancel')),
-                          ),
+                        child: DhizukuTextButton(
+                          onPressed: SystemNavigator.pop,
+                          child: Text(tr(context, 'cancel')),
                         ),
                       ),
                     ],
@@ -393,8 +292,8 @@ class _AcceptedShell extends StatelessWidget {
     future: DhizukuApi.getInitialData(),
     builder: (context, snapshot) => snapshot.hasData
         ? DhizukuShell(initialData: snapshot.data!, appearance: appearance)
-        : const Scaffold(
-            body: Center(child: CircularProgressIndicator.adaptive()),
+        : const DhizukuScaffold(
+            body: Center(child: prism.ActivityIndicator.page()),
           ),
   );
 }
@@ -417,6 +316,7 @@ class _DhizukuShellState extends State<DhizukuShell> {
   int _selected = 0;
   DateTime? _lastBackPress;
   Timer? _backPromptTimer;
+  OverlayEntry? _backPromptEntry;
   bool _programmaticPageChange = false;
   final PageController _pageController = PageController();
   final ValueNotifier<int> _dockSelected = ValueNotifier(0);
@@ -460,37 +360,29 @@ class _DhizukuShellState extends State<DhizukuShell> {
     if (_lastBackPress != null &&
         now.difference(_lastBackPress!) <= const Duration(seconds: 1)) {
       _clearBackExitPrompt();
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
       SystemNavigator.pop();
       return;
     }
-    _backPromptTimer?.cancel();
+    _clearBackExitPrompt();
     _lastBackPress = now;
     final wide = MediaQuery.sizeOf(context).width >= 720;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          padding: EdgeInsets.zero,
-          content: _BackExitPromptCard(
-            text: tr(context, 'press_back_again_to_exit'),
-          ),
-          duration: const Duration(seconds: 1),
-          behavior: SnackBarBehavior.floating,
-          margin: EdgeInsets.fromLTRB(
-            16,
-            0,
-            16,
-            wide ? 16 : prism.NavigationDock.insetOf(context) + 16,
-          ),
+    final bottomOffset = wide ? 16.0 : prism.NavigationDock.insetOf(context) + 16;
+    final promptText = tr(context, 'press_back_again_to_exit');
+    final entry = OverlayEntry(
+      builder: (_) => Positioned(
+        left: 16,
+        right: 16,
+        bottom: bottomOffset,
+        child: IgnorePointer(
+          child: _BackExitPromptCard(text: promptText),
         ),
-      );
+      ),
+    );
+    Overlay.of(context, rootOverlay: true).insert(entry);
+    _backPromptEntry = entry;
     _backPromptTimer = Timer(const Duration(seconds: 1), () {
       if (!mounted || _lastBackPress != now) return;
       _clearBackExitPrompt();
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
     });
   }
 
@@ -498,11 +390,13 @@ class _DhizukuShellState extends State<DhizukuShell> {
     _lastBackPress = null;
     _backPromptTimer?.cancel();
     _backPromptTimer = null;
+    _backPromptEntry?.remove();
+    _backPromptEntry = null;
   }
 
   @override
   void dispose() {
-    _backPromptTimer?.cancel();
+    _clearBackExitPrompt();
     _pageController.dispose();
     _dockSelected.dispose();
     super.dispose();
@@ -511,12 +405,6 @@ class _DhizukuShellState extends State<DhizukuShell> {
   @override
   Widget build(BuildContext context) {
     final labels = ['home', 'apps', 'users', 'settings'];
-    final icons = [
-      Icons.dashboard_outlined,
-      Icons.apps_outlined,
-      Icons.group_outlined,
-      Icons.settings_outlined,
-    ];
     final glyphs = [
       DhizukuGlyphs.dashboard,
       DhizukuGlyphs.apps,
@@ -545,11 +433,12 @@ class _DhizukuShellState extends State<DhizukuShell> {
         onChanged: (value) => setState(() => _settings = value),
       ),
     ];
+    final colors = prism.Theme.of(context).colorScheme;
     final wide = MediaQuery.sizeOf(context).width >= 720;
     final title = tr(context, labels[_selected]);
-    final scaffold = Scaffold(
-      extendBody: !wide,
-      appBar: AppBar(
+    final scaffold = DhizukuScaffold(
+      appBar: DhizukuAppBar(
+        automaticallyImplyLeading: false,
         title: AnimatedSwitcher(
           duration: AppMotion.navigationTitleDuration,
           switchInCurve: AppMotion.enterCurve,
@@ -573,35 +462,48 @@ class _DhizukuShellState extends State<DhizukuShell> {
             DhizukuIconButton(
               tooltip: tr(context, 'donate'),
               onPressed: () => DhizukuApi.openUrl(tr(context, 'donation_url')),
-              icon: const Icon(Icons.favorite_outline),
+              icon: const GlyphIcon(DhizukuGlyphs.heart),
             ),
           if (_selected == 0)
             DhizukuIconButton(
               tooltip: tr(context, 'shutdown'),
               onPressed: _confirmShutdown,
-              icon: const Icon(Icons.power_settings_new),
+              icon: const GlyphIcon(DhizukuGlyphs.power),
             ),
         ],
       ),
       body: Row(
         children: [
           if (wide) ...[
-            NavigationRail(
-              selectedIndex: _selected,
-              onDestinationSelected: _selectPage,
-              labelType: NavigationRailLabelType.all,
-              destinations: [
-                for (var i = 0; i < labels.length; i++)
-                  NavigationRailDestination(
-                    icon: Icon(icons[i]),
-                    label: Text(tr(context, labels[i])),
+            SizedBox(
+              width: 88,
+              child: SafeArea(
+                right: false,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 12,
                   ),
-              ],
+                  child: Column(
+                    spacing: 8,
+                    children: [
+                      for (var i = 0; i < labels.length; i++)
+                        _SideRailItem(
+                          glyph: glyphs[i],
+                          label: tr(context, labels[i]),
+                          selected: i == _selected,
+                          onPressed: () => _selectPage(i),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
             ),
-            const VerticalDivider(width: 1),
+            Container(width: 1, color: colors.outlineVariant),
           ],
           Expanded(
             child: prism.Surface(
+              color: prism.SurfaceLevel.page.colorOf(colors),
               child: Stack(
                 children: [
                   Positioned.fill(
@@ -696,9 +598,11 @@ class _DhizukuShellState extends State<DhizukuShell> {
   }
 
   void _showError(Object error) {
-    ScaffoldMessenger.of(
+    showDhizukuBanner(
       context,
-    ).showSnackBar(SnackBar(content: Text('${tr(context, 'error')}: $error')));
+      '${tr(context, 'error')}: $error',
+      level: prism.BannerLevel.error,
+    );
   }
 
   Future<void> _confirmShutdown() async {
@@ -727,6 +631,54 @@ class _DhizukuShellState extends State<DhizukuShell> {
         if (mounted) _showError(error);
       }
     }
+  }
+}
+
+class _SideRailItem extends StatelessWidget {
+  const _SideRailItem({
+    required this.glyph,
+    required this.label,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final Glyph glyph;
+  final String label;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = prism.Theme.of(context).colorScheme;
+    final foreground = selected
+        ? colors.onSecondaryContainer
+        : colors.onSurfaceVariant;
+    return DhizukuPressSurface(
+      fill: selected ? colors.secondaryContainer : prism.Colors.transparent,
+      shape: prism.AppShape.xl,
+      look: selected ? prism.PressLook.none : prism.PressLook.tint,
+      selected: selected,
+      onPressed: onPressed,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      child: SizedBox(
+        width: double.infinity,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          spacing: 4,
+          children: [
+            GlyphIcon(glyph, size: 22, color: foreground),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: prism.AppTextStyle.caption2
+                  .of(context, emphasized: selected)
+                  .copyWith(color: foreground),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -778,7 +730,7 @@ class _BackExitPromptCardState extends State<_BackExitPromptCard>
             child: Text(
               widget.text,
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              style: prism.AppTextStyle.body.of(context).copyWith(
                 color: colors.onSurface,
                 fontWeight: AppTypography.adjustFontWeight(FontWeight.w600),
               ),
