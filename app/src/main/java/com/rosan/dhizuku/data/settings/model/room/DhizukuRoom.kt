@@ -1,7 +1,6 @@
 package com.rosan.dhizuku.data.settings.model.room
 
 import android.content.Context
-import android.os.Build
 
 import androidx.room.AutoMigration
 import androidx.room.Database
@@ -26,9 +25,7 @@ abstract class DhizukuRoom : RoomDatabase() {
     companion object : KoinComponent {
         fun createInstance(): DhizukuRoom {
             var context: Context = get()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
-                && !context.isDeviceProtectedStorage
-            ) {
+            if (!context.isDeviceProtectedStorage) {
                 context = context.createDeviceProtectedStorageContext()
             }
             return Room.databaseBuilder(

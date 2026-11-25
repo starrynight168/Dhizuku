@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.content.ActivityNotFoundException
 import android.app.admin.DevicePolicyManager
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -33,10 +34,13 @@ import com.rosan.dhizuku.ui.page.settings.activate.ActivateViewState
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import java.io.ByteArrayOutputStream
@@ -127,8 +131,12 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
             }
             "openUrl" -> {
                 val url = call.argument<String>("url") ?: return result.error("invalid_argument", "Missing URL", null)
-                activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-                result.success(null)
+                try {
+                    activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                    result.success(true)
+                } catch (_: ActivityNotFoundException) {
+                    result.success(false)
+                }
             }
             "requestNotificationPermission" -> {
                 (activity as? SettingsActivity)?.requestPostNotificationPermission()
@@ -367,6 +375,7 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
                     "userId" to account.userId,
                     "type" to account.type,
                     "name" to account.name,
+                    "hasKnownName" to account.hasKnownName,
                     "providerLabel" to provider?.label,
                     "icon" to provider?.let { iconBytes(it.icon) }
                 )
@@ -379,31 +388,22 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
         userId: Int,
         auths: List<AccountAuthenticatorEntity>,
         accounts: List<AccountEntity>
-    ): List<Map<String, Any?>> {
+    ): List<Map<String, Any?>> = frozenPackagesMutex.withLock {
         val prefs = activity.getSharedPreferences("frozen_packages_user_$userId", Context.MODE_PRIVATE)
         val saved = prefs.getStringSet("frozen_info", emptySet())?.toMutableSet() ?: mutableSetOf()
         val frozenInfo = saved.mapNotNull { value ->
             val parts = value.split("|", limit = 3)
             if (parts.size == 3) parts[0] to (parts[1] to parts[2]) else null
         }.toMap()
+        val enabledPackages = frozenInfo.keys.filter { packageName ->
+            isPackageConfirmedEnabled(packageName, userId)
+        }.toSet()
         val activePackages = auths.associateBy { it.packageName }
         val rows = mutableListOf<Map<String, Any?>>()
 
         auths.forEach { auth ->
             val matchingAccounts = accounts.filter { it.type == auth.type }
-            val savedInfo = frozenInfo[auth.packageName]
-            var frozen = savedInfo != null
-            if (frozen) {
-                try {
-                    if (userService.isPackageEnabled(auth.packageName, userId)) {
-                        frozen = false
-                        saved.removeAll { it.startsWith("${auth.packageName}|") }
-                    }
-                } catch (_: Exception) {
-                    frozen = false
-                    saved.removeAll { it.startsWith("${auth.packageName}|") }
-                }
-            }
+            val frozen = auth.packageName in frozenInfo && auth.packageName !in enabledPackages
             if (matchingAccounts.isNotEmpty() || frozen) {
                 rows.add(authRow(auth.userId, auth.type, auth.packageName, auth.label, frozen, iconBytes(auth.icon)))
             }
@@ -411,23 +411,30 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
 
         frozenInfo.forEach { (packageName, info) ->
             if (activePackages.containsKey(packageName)) return@forEach
-            val enabled = runCatching { userService.isPackageEnabled(packageName, userId) }.getOrElse {
-                saved.removeAll { it.startsWith("$packageName|") }
-                false
-            }
-            if (enabled) saved.removeAll { it.startsWith("$packageName|") }
             rows.add(authRow(
                 userId,
                 info.first,
                 packageName,
                 info.second,
-                frozen = !enabled,
+                frozen = packageName !in enabledPackages,
                 icon = packageIconBytes(packageName)
             ))
         }
 
-        prefs.edit().putStringSet("frozen_info", saved).apply()
-        return rows.sortedBy { it["label"].toString().lowercase() }
+        if (saved.removeAll { it.substringBefore('|') in enabledPackages }) {
+            prefs.edit().putStringSet("frozen_info", saved).apply()
+        }
+        rows.sortedBy { it["label"].toString().lowercase() }
+    }
+
+    private suspend fun isPackageConfirmedEnabled(packageName: String, userId: Int): Boolean = try {
+        userService.isPackageEnabled(packageName, userId) == true
+    } catch (error: CancellationException) {
+        throw error
+    } catch (_: NoSuchMethodError) {
+        false
+    } catch (_: Exception) {
+        false
     }
 
     private fun authRow(
@@ -466,17 +473,17 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
         val enabled = call.argument<Boolean>("enabled") ?: error("Missing enabled")
         val label = call.argument<String>("label").orEmpty()
         val type = call.argument<String>("type").orEmpty()
-        val prefs = activity.getSharedPreferences("frozen_packages_user_$userId", Context.MODE_PRIVATE)
-        val success = userService.setPackageEnabled(packageName, enabled, userId)
-        if (success) {
-            val current = prefs.getStringSet("frozen_info", emptySet())?.toMutableSet() ?: mutableSetOf()
-            if (!enabled) {
+        frozenPackagesMutex.withLock {
+            val success = userService.setPackageEnabled(packageName, enabled, userId)
+            if (success) {
+                val prefs = activity.getSharedPreferences("frozen_packages_user_$userId", Context.MODE_PRIVATE)
+                val current = prefs.getStringSet("frozen_info", emptySet())?.toMutableSet() ?: mutableSetOf()
                 current.removeAll { it.startsWith("$packageName|") }
-                current.add("$packageName|$type|$label")
+                if (!enabled) current.add("$packageName|$type|$label")
+                prefs.edit().putStringSet("frozen_info", current).apply()
             }
-            prefs.edit().putStringSet("frozen_info", current).apply()
+            success
         }
-        success
     }
 
     @Suppress("DEPRECATION")
@@ -547,6 +554,7 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
 
     companion object {
         const val CHANNEL = "com.rosan.dhizuku/bridge"
+        private val frozenPackagesMutex = Mutex()
     }
 }
 

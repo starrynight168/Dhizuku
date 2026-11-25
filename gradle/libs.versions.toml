@@ -27,7 +27,6 @@ ksp = { id = "com.google.devtools.ksp", version = "2.3.12" }
 androidx-annotation = { group = "androidx.annotation", name = "annotation", version = "1.11.0" }
 androidx-core = { group = "androidx.core", name = "core-ktx", version = "1.19.1" }
 androidx-lifecycle = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version = "2.11.0" }
-material = { group = "com.google.android.material", name = "material", version = "1.14.0" }
 
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }

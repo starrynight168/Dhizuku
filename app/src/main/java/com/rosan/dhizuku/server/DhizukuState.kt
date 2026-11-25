@@ -8,8 +8,8 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.content.pm.PermissionInfo
 import android.os.Build
+import android.util.Log
 import com.rosan.dhizuku.BuildConfig
-import com.rosan.dhizuku.data.common.util.has
 
 data object DhizukuState {
     data class State(val isDeviceOwner: Boolean = false, val isProfileOwner: Boolean = false) {
@@ -51,7 +51,7 @@ data object DhizukuState {
             it ?: return@filter false
             val permission = getPermissionInfo(context, it) ?: return@filter false
             return@filter if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                permission.protectionFlags.has(PermissionInfo.PROTECTION_DANGEROUS)
+                permission.protection == PermissionInfo.PROTECTION_DANGEROUS
             } else {
                 @Suppress("DEPRECATION")
                 (permission.protectionLevel and PermissionInfo.PROTECTION_MASK_BASE) == PermissionInfo.PROTECTION_DANGEROUS
@@ -95,9 +95,16 @@ data object DhizukuState {
 
     private fun autoDaemonService(context: Context) {
         val intent = Intent(context, DaemonService::class.java)
-         if (state.isOwner) {
-            context.startService(intent)
+        if (!state.isOwner) {
+            context.stopService(intent)
+            return
+        }
+        try {
             context.startForegroundService(intent)
-        } else context.stopService(intent)
+        } catch (error: IllegalStateException) {
+            Log.w("DhizukuState", "Unable to start the daemon in the current app state", error)
+        } catch (error: SecurityException) {
+            Log.w("DhizukuState", "Unable to start the daemon with the current permissions", error)
+        }
     }
 }

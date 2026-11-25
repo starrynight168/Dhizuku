@@ -67,6 +67,7 @@ class SnapSheetRoute<T> extends PopupRoute<T>
     required this.barrierLabel,
     this.detents = snapSheetDetents,
     this.fitsContent = false,
+    this.reduceMotion = false,
   });
 
   final SnapSheetBuilder builder;
@@ -74,6 +75,7 @@ class SnapSheetRoute<T> extends PopupRoute<T>
   final List<double> detents;
 
   final bool fitsContent;
+  final bool reduceMotion;
 
   @override
   final String barrierLabel;
@@ -123,7 +125,11 @@ class SnapSheetRoute<T> extends PopupRoute<T>
   void _drag(double value) => controller!.value = value;
 
   void _restore(double velocity) {
-    controller!.animateWith(_presentation(1, velocity));
+    if (reduceMotion) {
+      controller!.value = 1;
+    } else {
+      controller!.animateWith(_presentation(1, velocity));
+    }
   }
 
   /// Springs back while a guard decides, and leaves from there with
@@ -148,7 +154,8 @@ class SnapSheetRoute<T> extends PopupRoute<T>
   }
 
   @override
-  Simulation createSimulation({required bool forward}) {
+  Simulation? createSimulation({required bool forward}) {
+    if (reduceMotion) return null;
     final velocity = forward ? 0.0 : _closingVelocity;
     _closingVelocity = 0;
     return _presentation(forward ? 1 : 0, velocity);
@@ -185,7 +192,8 @@ class SnapSheetRoute<T> extends PopupRoute<T>
   }
 
   @override
-  Duration get transitionDuration => const Duration(milliseconds: 500);
+  Duration get transitionDuration =>
+      reduceMotion ? Duration.zero : const Duration(milliseconds: 500);
 
   @override
   Duration get reverseTransitionDuration => transitionDuration;
@@ -759,6 +767,10 @@ class _SheetModel extends ChangeNotifier {
   }
 
   void _settleTo(int stop, double velocity) {
+    if (route.reduceMotion) {
+      _rest(stop);
+      return;
+    }
     final stops = _stops;
     final offset = _heightIn(stops) - stops[stop];
     if (offset.abs() < _settleTolerance.distance &&

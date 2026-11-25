@@ -27,33 +27,25 @@ class DhizukuScaffold extends StatelessWidget {
     final colors = prism.Theme.of(context).colorScheme;
     final resolvedBackground =
         backgroundColor ?? prism.SurfaceLevel.page.colorOf(colors);
-    final bottomInset = resizeToAvoidBottomInset
-        ? MediaQuery.viewInsetsOf(context).bottom
-        : 0.0;
-    Widget content = appBar != null
-        ? MediaQuery.removePadding(
-            context: context,
-            removeTop: true,
-            child: body,
-          )
-        : body;
-    if (resizeToAvoidBottomInset && bottomInset > 0) {
-      content = Padding(
-        padding: EdgeInsets.only(bottom: bottomInset),
-        child: MediaQuery.removeViewInsets(
-          context: context,
-          removeBottom: true,
-          child: content,
-        ),
-      );
-    }
+    final media = MediaQuery.of(context);
+    final bottomInset = resizeToAvoidBottomInset ? media.viewInsets.bottom : 0.0;
     return prism.Surface(
       color: resolvedBackground,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ?appBar,
-          Expanded(child: content),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: bottomInset),
+              child: MediaQuery(
+                data: media
+                    .removePadding(removeTop: appBar != null)
+                    .removeViewInsets(removeBottom: resizeToAvoidBottomInset),
+                child: body,
+              ),
+            ),
+          ),
         ],
       ),
     );

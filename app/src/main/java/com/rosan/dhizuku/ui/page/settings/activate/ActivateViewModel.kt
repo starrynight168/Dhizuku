@@ -207,16 +207,13 @@ class ActivateViewModel : ViewModel(), KoinComponent {
         val success = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             clazz.getDeclaredMethod("setDeviceOwner", ComponentName::class.java, Int::class.java)
                 .also { it.isAccessible = true }.invoke(this, who, userId) as? Boolean ?: false
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+        } else {
             clazz.getDeclaredMethod(
                 "setDeviceOwner",
                 ComponentName::class.java,
                 String::class.java,
                 Int::class.java
             ).also { it.isAccessible = true }.invoke(this, who, ownerName, userId) as? Boolean ?: false
-        } else {
-            clazz.getDeclaredMethod("setDeviceOwner", ComponentName::class.java, String::class.java)
-                .also { it.isAccessible = true }.invoke(this, who, ownerName) as? Boolean ?: false
         }
         check(success) {
             "Android refused to set $who as device owner. Check system accounts, additional users, and device setup state."
@@ -232,16 +229,13 @@ class ActivateViewModel : ViewModel(), KoinComponent {
         val success = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             clazz.getDeclaredMethod("setProfileOwner", ComponentName::class.java, Int::class.java)
                 .also { it.isAccessible = true }.invoke(this, who, userId) as? Boolean ?: false
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+        } else {
             clazz.getDeclaredMethod(
                 "setProfileOwner",
                 ComponentName::class.java,
                 String::class.java,
                 Int::class.java
             ).also { it.isAccessible = true }.invoke(this, who, ownerName, userId) as? Boolean ?: false
-        } else {
-            clazz.getDeclaredMethod("setProfileOwner", ComponentName::class.java, String::class.java)
-                .also { it.isAccessible = true }.invoke(this, who, ownerName) as? Boolean ?: false
         }
         check(success) {
             "Android refused to set $who as profile owner. Check the selected user and device setup state."

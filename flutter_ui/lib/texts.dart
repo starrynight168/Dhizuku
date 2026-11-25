@@ -294,6 +294,10 @@ String tr(BuildContext context, String key) {
     'request_timeout': ['请求已超时', 'The request timed out'],
     'error': ['操作失败', 'Action failed'],
     'operation_failed': ['操作未成功', 'Operation did not complete'],
+    'external_link_unavailable': [
+      '没有可用的应用打开此链接',
+      'No app is available to open this link',
+    ],
     'no_data': ['暂无数据', 'No data available'],
     'adb_command': ['连接 ADB 后运行以下命令：', 'Connect ADB and run:'],
     'activation_info': [

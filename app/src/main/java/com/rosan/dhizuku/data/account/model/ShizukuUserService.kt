@@ -6,6 +6,7 @@ import android.accounts.IAccountManagerResponse
 import android.content.Context
 import android.content.pm.IPackageManager
 import android.content.pm.PackageInfo
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.IUserManager
@@ -20,11 +21,16 @@ import com.rosan.dhizuku.data.account.entity.UserEntity
 import com.rosan.dhizuku.data.account.repo.UserService
 import rikka.shizuku.Shizuku
 import kotlin.coroutines.resume
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.io.File
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+private const val MAX_LOG_BYTES = 512 * 1024L
+private const val MAX_LOG_ENTRY_CHARS = 8 * 1024
 
 class ShizukuUserService(private val context: Context) : UserService {
     // 本地包管理器：仅传入包名字符串读取资源，不接收远程ApplicationInfo
@@ -33,14 +39,26 @@ class ShizukuUserService(private val context: Context) : UserService {
     private val userManager by lazy { IUserManager.Stub.asInterface(shizukuBinder(Context.USER_SERVICE)) }
     private val accountManager by lazy { IAccountManager.Stub.asInterface(shizukuBinder(Context.ACCOUNT_SERVICE)) }
     private val packageManager by lazy { IPackageManager.Stub.asInterface(shizukuBinder("package")) }
+    private val logLock = Any()
 
     private fun writeLog(message: String) {
         try {
-            val dir = context.getExternalFilesDir(null)
-            if (dir != null) {
+            context.getExternalFilesDir(null)?.let { dir ->
                 val logFile = File(dir, "log.txt")
+                val backupFile = File(dir, "log.txt.1")
                 val time = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault()).format(Date())
-                logFile.appendText("[$time] $message\n")
+                val entry = "[$time] ${message.take(MAX_LOG_ENTRY_CHARS)}\n".toByteArray(Charsets.UTF_8)
+                synchronized(logLock) {
+                    if (logFile.length() + entry.size > MAX_LOG_BYTES) {
+                        backupFile.delete()
+                        if (logFile.length() <= MAX_LOG_BYTES && !logFile.renameTo(backupFile)) {
+                            logFile.delete()
+                        } else if (logFile.length() > MAX_LOG_BYTES) {
+                            logFile.delete()
+                        }
+                    }
+                    FileOutputStream(logFile, true).use { it.write(entry) }
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -49,27 +67,30 @@ class ShizukuUserService(private val context: Context) : UserService {
 
     override suspend fun removeUser(user: UserEntity): Boolean = removeUser(user.id)
 
-    override suspend fun removeUser(userId: Int): Boolean = userManager.removeUser(userId)
+    override suspend fun removeUser(userId: Int): Boolean = requireShizukuPermissionGranted(context) {
+        userManager.removeUser(userId)
+    }
 
     override suspend fun getUsers(): List<UserEntity> = requireShizukuPermissionGranted(context) {
-        (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
-            userManager.getUsers(false, false, false)
-        else userManager.getUsers(false)).map {
+        val users = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                userManager.getUsers(false, false, false)
+            } catch (_: NoSuchMethodError) {
+                userManager.getUsers(false)
+            }
+        } else {
+            userManager.getUsers(false)
+        }
+        users.map {
             UserEntity(id = it.id, name = it.name)
         }
     }
 
     override suspend fun getAccountAuthenticators(userId: Int): List<AccountAuthenticatorEntity> =
         requireShizukuPermissionGranted(context) {
-            val flags = 0x00000200L // PackageManager.MATCH_DISABLED_COMPONENTS
             accountManager.getAuthenticatorTypes(userId).mapNotNull { description ->
                 try {
                     val packageName = description.packageName
-                    // 远程仅获取PackageInfo，不使用内部ApplicationInfo
-                    val packageInfo: PackageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
-                        packageManager.getPackageInfo(packageName, flags, userId)
-                    else packageManager.getPackageInfo(packageName, flags.toInt(), userId)
-
                     // 本地PackageManager通过【包名字符串】读取资源，不传递远程ApplicationInfo
                     val appLabel = basePackageManager.getApplicationLabel(basePackageManager.getApplicationInfo(packageName, 0)).toString()
                     val descLabel = runCatching {
@@ -101,36 +122,46 @@ class ShizukuUserService(private val context: Context) : UserService {
         }
 
     override suspend fun getAccounts(userId: Int): List<AccountEntity> =
-        requireShizukuPermissionGranted(context) {
-            val dumpAccounts = getAccountsByDump(userId)
-            val managerAccounts = try {
-                getAccountsByManager(userId)
-            } catch (_: Exception) {
-                emptyList()
-            }
+        requireShizukuPermissionGranted(context) { loadAccounts(userId) }
 
-            val managerGrouped = managerAccounts.groupBy { it.type }.mapValues { it.value.toMutableList() }
-
-            dumpAccounts.map { dumpAccount ->
-                val managerList = managerGrouped[dumpAccount.type]
-                if (managerList != null && managerList.isNotEmpty()) {
-                    val managerAccount = managerList.removeAt(0)
-                    dumpAccount.copy(name = managerAccount.name)
-                } else {
-                    dumpAccount
-                }
-            }
+    private suspend fun loadAccounts(userId: Int): List<AccountEntity> {
+        val managerAccounts = try {
+            getAccountsByManager(userId)
+        } catch (_: NoSuchMethodError) {
+            null
+        } catch (_: Exception) {
+            null
         }
+        val dumpAccounts = try {
+            getAccountsByDump(userId)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            return managerAccounts ?: throw error
+        }
+        if (managerAccounts.isNullOrEmpty()) return dumpAccounts
+
+        val namedDumpAccounts = dumpAccounts.filter { it.hasKnownName }.toSet()
+        val namedManagerAccounts = managerAccounts.filter { it.hasKnownName }.toSet()
+        val extraNamesByType = (namedManagerAccounts - namedDumpAccounts)
+            .groupingBy { it.type }.eachCount().toMutableMap()
+        val remainingHidden = dumpAccounts.filter { account ->
+            if (account.hasKnownName) return@filter false
+            val extraNames = extraNamesByType[account.type] ?: 0
+            if (extraNames == 0) return@filter true
+            extraNamesByType[account.type] = extraNames - 1
+            false
+        }
+        return (namedDumpAccounts + namedManagerAccounts).toList() + remainingHidden
+    }
 
     private fun getAccountsByManager(userId: Int): List<AccountEntity> {
-        return (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val callingPackage = try {
-                basePackageManager.getPackagesForUid(Shizuku.getUid())?.firstOrNull() ?: "android"
-            } catch (_: Exception) {
-                "android"
-            }
-            accountManager.getAccountsAsUser(null, userId, callingPackage)
-        } else accountManager.getAccountsAsUser(null, userId)).map {
+        val callingPackage = try {
+            basePackageManager.getPackagesForUid(Shizuku.getUid())?.firstOrNull() ?: "android"
+        } catch (_: Exception) {
+            "android"
+        }
+        return accountManager.getAccountsAsUser(null, userId, callingPackage).map {
             AccountEntity(
                 userId = userId,
                 type = it.type,
@@ -139,7 +170,7 @@ class ShizukuUserService(private val context: Context) : UserService {
         }
     }
 
-    private fun getAccountsByDump(userId: Int): List<AccountEntity> {
+    private suspend fun getAccountsByDump(userId: Int): List<AccountEntity> {
         val text = accountManager.asBinder().dumpText()
         val lines = text.lines()
 
@@ -202,6 +233,9 @@ class ShizukuUserService(private val context: Context) : UserService {
     }
 
     override suspend fun removeAccount(account: AccountEntity): String = requireShizukuPermissionGranted(context) {
+        if (!account.hasKnownName || account !in loadAccounts(account.userId)) {
+            return@requireShizukuPermissionGranted "failed"
+        }
         val targetAccount = Account(account.name, account.type)
         suspendCancellableCoroutine<String> { continuation ->
             val response = object : IAccountManagerResponse.Stub() {
@@ -257,21 +291,21 @@ class ShizukuUserService(private val context: Context) : UserService {
         }
     }
 
-    override suspend fun isPackageEnabled(packageName: String, userId: Int): Boolean = requireShizukuPermissionGranted(context) {
-        try {
-            val flags = 0x00000200L
-            val info = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+    override suspend fun isPackageEnabled(packageName: String, userId: Int): Boolean? =
+        requireShizukuPermissionGranted(context) {
+            getPackageInfoForUser(packageName, userId)?.applicationInfo?.enabled
+        }
+
+    private fun getPackageInfoForUser(packageName: String, userId: Int): PackageInfo? {
+        val flags = PackageManager.MATCH_DISABLED_COMPONENTS
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            try {
+                packageManager.getPackageInfo(packageName, flags.toLong(), userId)
+            } catch (_: NoSuchMethodError) {
                 packageManager.getPackageInfo(packageName, flags, userId)
-            } else {
-                packageManager.getPackageInfo(packageName, flags.toInt(), userId)
             }
-            val enabledState = info?.applicationInfo?.enabled ?: true
-            writeLog("isPackageEnabled of $packageName: $enabledState")
-            enabledState
-        } catch (e: Exception) {
-            writeLog("isPackageEnabled exception of $packageName: ${e.message}")
-            e.printStackTrace()
-            true
+        } else {
+            packageManager.getPackageInfo(packageName, flags, userId)
         }
     }
 }

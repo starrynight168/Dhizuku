@@ -5,7 +5,6 @@ import android.os.Build;
 import android.os.IBinder;
 import android.os.IInterface;
 
-import androidx.annotation.DeprecatedSinceApi;
 import androidx.annotation.RequiresApi;
 
 public interface IAccountManager extends IInterface {
@@ -13,9 +12,6 @@ public interface IAccountManager extends IInterface {
 
     @RequiresApi(Build.VERSION_CODES.M)
     Account[] getAccountsAsUser(String accountType, int userId, String opPackageName);
-
-    @DeprecatedSinceApi(api = Build.VERSION_CODES.M)
-    Account[] getAccountsAsUser(String accountType, int userId);
 
     void removeAccountAsUser(IAccountManagerResponse response, Account account, boolean expectActivityLaunch, int userId);
 

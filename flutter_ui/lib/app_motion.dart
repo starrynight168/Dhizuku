@@ -8,10 +8,7 @@ abstract final class AppMotion {
   static const dialogDuration = Duration(milliseconds: 300);
   static const dialogSpringDuration = Duration(milliseconds: 270);
   static const selectionSpringDuration = Duration(milliseconds: 420);
-  static const bottomSheetDuration = Duration(milliseconds: 360);
-  static const bottomSheetReverseDuration = Duration(milliseconds: 300);
   static const appearanceSelectionDuration = Duration(milliseconds: 180);
-  static const activationSelectionDuration = Duration(milliseconds: 420);
   static const themePreviewDuration = Duration(milliseconds: 180);
   static const themeLabelDuration = Duration(milliseconds: 200);
   static const navigationTitleDuration = Duration(milliseconds: 220);

@@ -19,5 +19,5 @@ interface UserService {
 
     suspend fun setPackageEnabled(packageName: String, enabled: Boolean, userId: Int): Boolean
 
-    suspend fun isPackageEnabled(packageName: String, userId: Int): Boolean
+    suspend fun isPackageEnabled(packageName: String, userId: Int): Boolean?
 }

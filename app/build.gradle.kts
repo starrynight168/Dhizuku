@@ -115,7 +115,6 @@ dependencies {
 
     implementation(libs.androidx.core)
     implementation(libs.androidx.lifecycle)
-    implementation(libs.material)
 
     implementation(libs.room.runtime)
     ksp(libs.room.compiler)

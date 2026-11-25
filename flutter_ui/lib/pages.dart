@@ -1534,6 +1534,21 @@ class SettingsPage extends StatelessWidget {
     }
   }
 
+  Future<void> _openUrl(BuildContext context, String url) async {
+    try {
+      final opened = await DhizukuApi.openUrl(url);
+      if (!opened && context.mounted) {
+        showDhizukuBanner(
+          context,
+          tr(context, 'external_link_unavailable'),
+          level: prism.BannerLevel.error,
+        );
+      }
+    } catch (error) {
+      if (context.mounted) _showActionError(context, error);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => ListView(
     padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
@@ -1632,15 +1647,15 @@ class SettingsPage extends StatelessWidget {
                 leading: const GlyphIcon(DhizukuGlyphs.heart),
                 title: Text(tr(context, 'donate')),
                 trailing: const GlyphIcon(DhizukuGlyphs.openInNew),
-                onPressed: () =>
-                    DhizukuApi.openUrl(tr(context, 'donation_url')),
+                onPressed: () => _openUrl(context, tr(context, 'donation_url')),
               ),
               const DhizukuDivider(indent: 16, endIndent: 16),
               DhizukuListRow(
                 leading: const GlyphIcon(DhizukuGlyphs.description),
                 title: Text(tr(context, 'terms')),
                 trailing: const GlyphIcon(DhizukuGlyphs.openInNew),
-                onPressed: () => DhizukuApi.openUrl(
+                onPressed: () => _openUrl(
+                  context,
                   'https://iamr0s.github.io/Dhizuku/TERMS.html',
                 ),
               ),
@@ -1649,7 +1664,8 @@ class SettingsPage extends StatelessWidget {
                 leading: const GlyphIcon(DhizukuGlyphs.privacy),
                 title: Text(tr(context, 'privacy')),
                 trailing: const GlyphIcon(DhizukuGlyphs.openInNew),
-                onPressed: () => DhizukuApi.openUrl(
+                onPressed: () => _openUrl(
+                  context,
                   'https://iamr0s.github.io/Dhizuku/PRIVACY.html',
                 ),
               ),
@@ -2253,16 +2269,10 @@ class _AccountManagementPageState extends State<AccountManagementPage>
   }
 
   String _accountName(Map<String, dynamic> account) {
-    final name = account['name']?.toString() ?? '';
-    return _isMaskedAccountName(name)
-        ? tr(context, 'account_name_hidden')
-        : name;
+    return account['hasKnownName'] == true
+        ? account['name'].toString()
+        : tr(context, 'account_name_hidden');
   }
-
-  bool _isMaskedAccountName(String name) => RegExp(
-    r'^(?:x{3,}|[*•·]{3,})$',
-    caseSensitive: false,
-  ).hasMatch(name.trim());
 
   List<Map<String, dynamic>> _uniqueAuthenticatorApps(
     List<Map<String, dynamic>> authenticators,
@@ -2370,7 +2380,7 @@ class _AccountManagementPageState extends State<AccountManagementPage>
   }
 
   Future<void> _removeAccount(Map<String, dynamic> account) async {
-    if (_isMaskedAccountName(account['name']?.toString() ?? '')) {
+    if (account['hasKnownName'] != true) {
       final openSettings = await showDhizukuDialog<bool>(
         context,
         (context) => prism.AlertDialog(
@@ -2848,7 +2858,6 @@ class _ActivationPageState extends State<ActivationPage> {
     if (selectedKey == null) return;
     final selected = await showDhizukuBottomSheet<String>(
       context,
-      isScrollControlled: true,
       builder: (context) =>
           _AdminPickerSheet(admins: admins, selectedKey: selectedKey),
     );

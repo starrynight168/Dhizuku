@@ -83,13 +83,13 @@ Future<T?> showDhizukuDialog<T>(
 Future<T?> showDhizukuBottomSheet<T>(
   BuildContext context, {
   required WidgetBuilder builder,
-  bool isScrollControlled = false,
   bool useSafeArea = true,
 }) => Navigator.of(context).push<T>(
   prism.SnapSheetRoute<T>(
     sheetBarrierColor: context.colorScheme.modalScrim,
     barrierLabel: prism.UiLocalizations.of(context).close,
     fitsContent: true,
+    reduceMotion: MediaQuery.disableAnimationsOf(context),
     builder: (sheetContext, _) {
       final content = Builder(
         builder: (scopeContext) => prism.SurfaceScope(

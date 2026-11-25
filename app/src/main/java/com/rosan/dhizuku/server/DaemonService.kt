@@ -17,6 +17,7 @@ import com.rosan.dhizuku.data.settings.model.room.entity.AppEntity
 import com.rosan.dhizuku.data.settings.repo.AppRepo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -61,6 +62,7 @@ class DaemonService : Service(), KoinComponent {
     override fun onDestroy() {
         foreground(false)
         unregisterReceiver(packageReceiver)
+        scope.cancel()
         super.onDestroy()
     }
 

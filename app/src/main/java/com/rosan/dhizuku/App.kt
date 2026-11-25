@@ -3,8 +3,6 @@ package com.rosan.dhizuku
 import android.app.Application
 import android.content.Context
 
-import com.google.android.material.color.DynamicColors
-
 import com.rosan.dhizuku.di.init.appModules
 import com.rosan.dhizuku.server.DhizukuState
 
@@ -35,6 +33,5 @@ class App : Application(), KoinComponent {
         super.onCreate()
         DhizukuState.sync(this)
         Sui.init(packageName)
-        DynamicColors.applyToActivitiesIfAvailable(this)
     }
 }

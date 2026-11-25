@@ -30,18 +30,10 @@ abstract final class AppTypography {
   static String? fontFamilyFor(foundation.TargetPlatform platform) =>
       platform == foundation.TargetPlatform.android ? 'sans-serif' : null;
 
-  static double scaleFontSize(double size) => size * fontSizeScale;
-
   static FontWeight adjustFontWeight(FontWeight weight) {
     final target = (weight.value + fontWeightDelta).clamp(100, 900).toInt();
     return FontWeight(target);
   }
-
-  static TextStyle appBarTitle(Color color) => TextStyle(
-    color: color,
-    fontSize: scaleFontSize(24),
-    fontWeight: adjustFontWeight(FontWeight.w600),
-  );
 
   static TextStyle sectionTitle(BuildContext context) =>
       prism.AppTextStyle.headline.of(context);
@@ -54,12 +46,4 @@ abstract final class AppTypography {
 
   static TextStyle supportingText(BuildContext context) =>
       prism.AppTextStyle.footnote.of(context);
-
-  static TextStyle? adjustTextStyle(TextStyle? style) {
-    if (style == null) return null;
-    return style.copyWith(
-      fontSize: style.fontSize == null ? null : scaleFontSize(style.fontSize!),
-      fontWeight: adjustFontWeight(style.fontWeight ?? FontWeight.w400),
-    );
-  }
 }

@@ -4,15 +4,24 @@ import android.os.Binder
 import android.os.IBinder
 import android.os.Parcel
 import android.os.ParcelFileDescriptor
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import java.io.FileDescriptor
+import java.io.InputStream
 
-fun IBinder.transactDump(fd: FileDescriptor, args: Array<String>? = null) {
+private const val MAX_DUMP_BYTES = 4 * 1024 * 1024
+
+private fun IBinder.transactDump(fd: FileDescriptor, args: Array<String>?) {
     val data = Parcel.obtain()
     val reply = Parcel.obtain()
     try {
         data.writeFileDescriptor(fd)
         data.writeStringArray(args)
-        transact(Binder.DUMP_TRANSACTION, data, reply, 0)
+        check(transact(Binder.DUMP_TRANSACTION, data, reply, 0)) {
+            "System service did not handle the diagnostic dump request"
+        }
         reply.readException()
     } finally {
         data.recycle()
@@ -20,17 +29,29 @@ fun IBinder.transactDump(fd: FileDescriptor, args: Array<String>? = null) {
     }
 }
 
-fun IBinder.dumpBytes(args: Array<String>? = null): ByteArray {
-    val pipe = ParcelFileDescriptor.createPipe()
-    val readFD = pipe[0]
-    val writeFD = pipe[1]
-    writeFD.use {
-        transactDump(it.fileDescriptor, args)
+suspend fun IBinder.dumpText(args: Array<String>? = null): String =
+    withContext(Dispatchers.IO) {
+        val (readEnd, writeEnd) = ParcelFileDescriptor.createPipe()
+        readEnd.use {
+            val reader = async {
+                ParcelFileDescriptor.AutoCloseInputStream(readEnd).use { it.readDumpText() }
+            }
+            writeEnd.use { transactDump(it.fileDescriptor, args) }
+            reader.await()
+        }
     }
-    return readFD.use {
-        ParcelFileDescriptor.AutoCloseInputStream(it).readBytes()
-    }
-}
 
-fun IBinder.dumpText(args: Array<String>? = null): String =
-    dumpBytes(args).decodeToString()
+private fun InputStream.readDumpText(): String {
+    val output = ByteArrayOutputStream()
+    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+    var truncated = false
+    while (true) {
+        val count = read(buffer)
+        if (count < 0) break
+        val kept = minOf(count, MAX_DUMP_BYTES - output.size())
+        output.write(buffer, 0, kept)
+        if (kept < count) truncated = true
+    }
+    check(!truncated) { "System diagnostic output exceeded $MAX_DUMP_BYTES bytes" }
+    return output.toString(Charsets.UTF_8.name())
+}

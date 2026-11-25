@@ -121,8 +121,8 @@ class DhizukuApi {
   static Future<void> cancelActivation() =>
       _channel.invokeMethod<void>('cancelActivation');
 
-  static Future<void> openUrl(String url) =>
-      _channel.invokeMethod<void>('openUrl', {'url': url});
+  static Future<bool> openUrl(String url) async =>
+      await _channel.invokeMethod<bool>('openUrl', {'url': url}) ?? false;
 
   static Future<void> deactivateOwner() =>
       _channel.invokeMethod<void>('deactivateOwner');
