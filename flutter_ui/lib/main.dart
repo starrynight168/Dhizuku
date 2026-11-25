@@ -243,13 +243,15 @@ class _AgreementPageState extends State<AgreementPage> {
                         spacing: 8,
                         children: [
                           DhizukuTextButton(
-                            onPressed: () => DhizukuApi.openUrl(
+                            onPressed: () => openDhizukuUrl(
+                              context,
                               'https://iamr0s.github.io/Dhizuku/TERMS.html',
                             ),
                             child: Text(tr(context, 'terms')),
                           ),
                           DhizukuTextButton(
-                            onPressed: () => DhizukuApi.openUrl(
+                            onPressed: () => openDhizukuUrl(
+                              context,
                               'https://iamr0s.github.io/Dhizuku/PRIVACY.html',
                             ),
                             child: Text(tr(context, 'privacy')),
@@ -470,7 +472,8 @@ class _DhizukuShellState extends State<DhizukuShell> {
           if (_selected == 0 && _settings['donateButtonHidden'] != true)
             DhizukuIconButton(
               tooltip: tr(context, 'donate'),
-              onPressed: () => DhizukuApi.openUrl(tr(context, 'donation_url')),
+              onPressed: () =>
+                  openDhizukuUrl(context, tr(context, 'donation_url')),
               icon: const GlyphIcon(DhizukuGlyphs.heart),
             ),
           if (_selected == 0)

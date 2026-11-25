@@ -4,9 +4,11 @@ import 'package:flutter/widgets.dart';
 import 'package:prism_ui/icons/icons.dart' show GlyphIcon, Glyphs;
 import 'package:prism_ui/prism_ui.dart' as prism;
 
+import 'api.dart';
 import 'app_motion.dart';
 import 'app_typography.dart';
 import 'press_feedback.dart';
+import 'texts.dart';
 
 class DhizukuScaffold extends StatelessWidget {
   const DhizukuScaffold({
@@ -381,6 +383,27 @@ void showDhizukuBanner(
   prism.BannerLevel level = prism.BannerLevel.info,
 }) {
   prism.BannerHost.maybeOf(context)?.show(message, level: level);
+}
+
+Future<void> openDhizukuUrl(BuildContext context, String url) async {
+  try {
+    final opened = await DhizukuApi.openUrl(url);
+    if (!opened && context.mounted) {
+      showDhizukuBanner(
+        context,
+        tr(context, 'external_link_unavailable'),
+        level: prism.BannerLevel.error,
+      );
+    }
+  } catch (error) {
+    if (context.mounted) {
+      showDhizukuBanner(
+        context,
+        '${tr(context, 'error')}: $error',
+        level: prism.BannerLevel.error,
+      );
+    }
+  }
 }
 
 class DhizukuListRow extends StatelessWidget {

@@ -1534,21 +1534,6 @@ class SettingsPage extends StatelessWidget {
     }
   }
 
-  Future<void> _openUrl(BuildContext context, String url) async {
-    try {
-      final opened = await DhizukuApi.openUrl(url);
-      if (!opened && context.mounted) {
-        showDhizukuBanner(
-          context,
-          tr(context, 'external_link_unavailable'),
-          level: prism.BannerLevel.error,
-        );
-      }
-    } catch (error) {
-      if (context.mounted) _showActionError(context, error);
-    }
-  }
-
   @override
   Widget build(BuildContext context) => ListView(
     padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
@@ -1647,14 +1632,15 @@ class SettingsPage extends StatelessWidget {
                 leading: const GlyphIcon(DhizukuGlyphs.heart),
                 title: Text(tr(context, 'donate')),
                 trailing: const GlyphIcon(DhizukuGlyphs.openInNew),
-                onPressed: () => _openUrl(context, tr(context, 'donation_url')),
+                onPressed: () =>
+                    openDhizukuUrl(context, tr(context, 'donation_url')),
               ),
               const DhizukuDivider(indent: 16, endIndent: 16),
               DhizukuListRow(
                 leading: const GlyphIcon(DhizukuGlyphs.description),
                 title: Text(tr(context, 'terms')),
                 trailing: const GlyphIcon(DhizukuGlyphs.openInNew),
-                onPressed: () => _openUrl(
+                onPressed: () => openDhizukuUrl(
                   context,
                   'https://iamr0s.github.io/Dhizuku/TERMS.html',
                 ),
@@ -1664,7 +1650,7 @@ class SettingsPage extends StatelessWidget {
                 leading: const GlyphIcon(DhizukuGlyphs.privacy),
                 title: Text(tr(context, 'privacy')),
                 trailing: const GlyphIcon(DhizukuGlyphs.openInNew),
-                onPressed: () => _openUrl(
+                onPressed: () => openDhizukuUrl(
                   context,
                   'https://iamr0s.github.io/Dhizuku/PRIVACY.html',
                 ),
