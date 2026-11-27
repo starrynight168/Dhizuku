@@ -3,12 +3,10 @@ package com.rosan.dhizuku.server
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.content.pm.PermissionInfo
 import android.os.Build
-import android.util.Log
 import com.rosan.dhizuku.BuildConfig
 
 data object DhizukuState {
@@ -29,21 +27,7 @@ data object DhizukuState {
             isDeviceOwner = dpm.isDeviceOwnerApp(admin.packageName),
             isProfileOwner = dpm.isProfileOwnerApp(admin.packageName)
         )
-        onReceive(context, dpm, admin)
-    }
-
-    private fun onReceive(context: Context, dpm: DevicePolicyManager, admin: ComponentName) {
-        if (state.isOwner) onEnabled(context, dpm, admin)
-        else onDisabled(context, dpm, admin)
-
-        autoDaemonService(context)
-    }
-
-    private fun onEnabled(context: Context, dpm: DevicePolicyManager, admin: ComponentName) {
-        grantPermissions(context, dpm, admin)
-    }
-
-    private fun onDisabled(context: Context, dpm: DevicePolicyManager, admin: ComponentName) {
+        if (state.isOwner) grantPermissions(context, dpm, admin)
     }
 
     private fun grantPermissions(context: Context, dpm: DevicePolicyManager, admin: ComponentName) {
@@ -91,20 +75,5 @@ data object DhizukuState {
         context.packageManager.getPermissionInfo(permission, 0)
     } catch (e: Exception) {
         null
-    }
-
-    private fun autoDaemonService(context: Context) {
-        val intent = Intent(context, DaemonService::class.java)
-        if (!state.isOwner) {
-            context.stopService(intent)
-            return
-        }
-        try {
-            context.startForegroundService(intent)
-        } catch (error: IllegalStateException) {
-            Log.w("DhizukuState", "Unable to start the daemon in the current app state", error)
-        } catch (error: SecurityException) {
-            Log.w("DhizukuState", "Unable to start the daemon with the current permissions", error)
-        }
     }
 }

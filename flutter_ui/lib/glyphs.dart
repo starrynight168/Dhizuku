@@ -216,13 +216,6 @@ abstract final class DhizukuGlyphs {
     ),
   ]);
 
-  static const notifications = Glyph([
-    GlyphPath(
-      'M18 10A6 6 0 0 0 6 10C6 16 3.5 17 3.5 18H20.5C20.5 17 18 16 18 10 M10 21H14',
-      role: GlyphRole.line,
-    ),
-  ]);
-
   static const battery = Glyph([
     GlyphPath(
       'M7 6H17V20.5H7Z M10 3.5H14V6H10Z M12.5 9.5L10 13.5H12.5L11.5 17L14 13H11.5Z',

@@ -1611,13 +1611,6 @@ class SettingsPage extends StatelessWidget {
           child: Column(
             children: [
               DhizukuListRow(
-                leading: const GlyphIcon(DhizukuGlyphs.notifications),
-                title: Text(tr(context, 'notifications')),
-                trailing: const GlyphIcon(Glyphs.chevronForward),
-                onPressed: DhizukuApi.requestNotificationPermission,
-              ),
-              const DhizukuDivider(indent: 16, endIndent: 16),
-              DhizukuListRow(
                 leading: const GlyphIcon(DhizukuGlyphs.battery),
                 title: Text(tr(context, 'battery_optimization')),
                 trailing: const GlyphIcon(Glyphs.chevronForward),

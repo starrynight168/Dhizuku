@@ -143,7 +143,6 @@ String tr(BuildContext context, String key) {
     'style_monochrome': ['单色', 'Mono'],
     'preferences_group': ['行为偏好', 'Preferences'],
     'about_group': ['系统与项目', 'System and project'],
-    'notifications': ['通知权限', 'Notifications'],
     'battery_optimization': ['电池优化', 'Battery optimization'],
     'owner': ['设备所有者', 'Device owner'],
     'profile_owner': ['配置文件所有者', 'Profile owner'],

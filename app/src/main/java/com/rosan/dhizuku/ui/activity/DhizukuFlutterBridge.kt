@@ -139,10 +139,6 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
                     result.success(false)
                 }
             }
-            "requestNotificationPermission" -> {
-                (activity as? SettingsActivity)?.requestPostNotificationPermission()
-                result.success(null)
-            }
             "requestIgnoreBatteryOptimization" -> {
                 (activity as? SettingsActivity)?.requestIgnoreBatteryOptimization()
                 result.success(null)

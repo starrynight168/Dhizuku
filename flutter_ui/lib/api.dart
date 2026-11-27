@@ -90,9 +90,6 @@ class DhizukuApi {
   static Future<int> getSystemFontWeightAdjustment() async =>
       await _channel.invokeMethod<int>('getSystemFontWeightAdjustment') ?? 0;
 
-  static Future<void> requestNotificationPermission() =>
-      _channel.invokeMethod<void>('requestNotificationPermission');
-
   static Future<void> requestIgnoreBatteryOptimization() =>
       _channel.invokeMethod<void>('requestIgnoreBatteryOptimization');
 

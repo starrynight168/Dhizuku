@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    tools:ignore="ExportedContentProvider,ForegroundServicesPolicy,ScopedStorage,QueryAllPackagesPermission,PackageVisibilityPolicy,ProtectedPermissions,SystemPermissionTypo,UnusedAttribute">
+    tools:ignore="ExportedContentProvider,ScopedStorage,QueryAllPackagesPermission,PackageVisibilityPolicy,ProtectedPermissions,SystemPermissionTypo,UnusedAttribute">
 
     <permission
         android:name="${applicationId}.permission.API"
@@ -10,11 +10,8 @@
         android:label="@string/app_name"
         android:protectionLevel="dangerous" />
 
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING" />
     <uses-permission android:name="android.permission.GET_ACCOUNTS" />
     <uses-permission android:name="android.permission.MANAGE_ACCOUNTS" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -112,9 +109,15 @@
         </provider>
 
         <service
-            android:name=".server.DaemonService"
+            android:name=".server.DhizukuAdminService"
+            android:directBootAware="true"
             android:enabled="true"
-            android:foregroundServiceType="remoteMessaging" />
+            android:exported="true"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_SERVICE" />
+            </intent-filter>
+        </service>
 
         <receiver
             android:name=".server.DhizukuDAReceiver"
