@@ -83,12 +83,13 @@ class HomePage extends StatelessWidget {
           subtitle: null,
           onTap: () => onNavigate(3),
         ),
-        (
-          glyph: DhizukuGlyphs.swap,
-          title: tr(context, 'activate_dhizuku'),
-          subtitle: tr(context, 'activation_info'),
-          onTap: () => _openActivation(context, 'dhizuku'),
-        ),
+        if (data['canTransferOwnership'] != false)
+          (
+            glyph: DhizukuGlyphs.swap,
+            title: tr(context, 'activate_dhizuku'),
+            subtitle: tr(context, 'activation_info'),
+            onTap: () => _openActivation(context, 'dhizuku'),
+          ),
         (
           glyph: DhizukuGlyphs.verified,
           title: tr(context, 'deactivate'),
@@ -1527,6 +1528,27 @@ class SettingsPage extends StatelessWidget {
   final ValueChanged<Map<String, dynamic>> onChanged;
 
   Future<void> _toggle(BuildContext context, String key, bool value) async {
+    if (key == 'allowOwnershipChanges' && value) {
+      final confirmed = await showDhizukuDialog<bool>(
+        context,
+        (dialogContext) => prism.AlertDialog(
+          title: tr(dialogContext, 'allow_ownership_changes_confirm_title'),
+          destructive: true,
+          actions: [
+            DhizukuTextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(tr(dialogContext, 'cancel')),
+            ),
+            DhizukuTextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(tr(dialogContext, 'confirm')),
+            ),
+          ],
+          child: Text(tr(dialogContext, 'allow_ownership_changes_confirm_dsp')),
+        ),
+      );
+      if (confirmed != true || !context.mounted) return;
+    }
     try {
       onChanged(await DhizukuApi.setSetting(key, value));
     } catch (error) {
@@ -1597,6 +1619,14 @@ class SettingsPage extends StatelessWidget {
                 value: settings['donateButtonHidden'] == true,
                 onChanged: (value) =>
                     _toggle(context, 'donateButtonHidden', value),
+              ),
+              const DhizukuDivider(indent: 16, endIndent: 16),
+              DhizukuSwitchRow(
+                title: tr(context, 'allow_ownership_changes'),
+                subtitle: tr(context, 'allow_ownership_changes_dsp'),
+                value: settings['allowOwnershipChanges'] == true,
+                onChanged: (value) =>
+                    _toggle(context, 'allowOwnershipChanges', value),
               ),
             ],
           ),

@@ -37,6 +37,7 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -153,13 +154,15 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
         "isDeviceOwner" to DhizukuState.state.isDeviceOwner,
         "isProfileOwner" to DhizukuState.state.isProfileOwner,
         "isOwner" to DhizukuState.state.isOwner,
+        "canTransferOwnership" to (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P),
         "settings" to settings()
     )
 
     private fun settings() = mapOf(
         "dhizukuEnabled" to settingsRepo.isDhizukuEnabled,
         "whitelistMode" to settingsRepo.isWhitelistMode,
-        "donateButtonHidden" to settingsRepo.isDonateButtonHidden
+        "donateButtonHidden" to settingsRepo.isDonateButtonHidden,
+        "allowOwnershipChanges" to settingsRepo.isAllowOwnershipChanges
     )
 
     private fun commandFavorites(): List<Map<String, String>> {
@@ -208,32 +211,54 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
                     .version(1)
                     .daemon(false)
                     .processNameSuffix("command")
-                val (service, connection) = suspendCancellableCoroutine<Pair<ICommandUserService, ServiceConnection>> { continuation ->
-                    val callback = object : ServiceConnection {
-                        override fun onServiceConnected(name: ComponentName, binder: IBinder) {
-                            if (continuation.isActive) {
-                                continuation.resumeWith(
-                                    Result.success(ICommandUserService.Stub.asInterface(binder) to this)
-                                )
-                            }
-                        }
+                val (service, connection) = try {
+                    withTimeout(COMMAND_BIND_TIMEOUT_MS) {
+                        suspendCancellableCoroutine<Pair<ICommandUserService, ServiceConnection>> { continuation ->
+                            val callback = object : ServiceConnection {
+                                override fun onServiceConnected(name: ComponentName, binder: IBinder) {
+                                    if (continuation.isActive) {
+                                        continuation.resumeWith(
+                                            Result.success(ICommandUserService.Stub.asInterface(binder) to this)
+                                        )
+                                    }
+                                }
 
-                        override fun onServiceDisconnected(name: ComponentName) {
-                            if (continuation.isActive) {
-                                continuation.resumeWith(
-                                    Result.failure(IllegalStateException("Shizuku command service disconnected"))
-                                )
+                                override fun onServiceDisconnected(name: ComponentName) {
+                                    if (continuation.isActive) {
+                                        continuation.resumeWith(
+                                            Result.failure(IllegalStateException("Shizuku command service disconnected"))
+                                        )
+                                    }
+                                }
+
+                                override fun onBindingDied(name: ComponentName) {
+                                    if (continuation.isActive) {
+                                        continuation.resumeWith(
+                                            Result.failure(IllegalStateException("Shizuku command service binding died"))
+                                        )
+                                    }
+                                }
+
+                                override fun onNullBinding(name: ComponentName) {
+                                    if (continuation.isActive) {
+                                        continuation.resumeWith(
+                                            Result.failure(IllegalStateException("Shizuku command service returned null binding"))
+                                        )
+                                    }
+                                }
+                            }
+                            try {
+                                Shizuku.bindUserService(args, callback)
+                                continuation.invokeOnCancellation {
+                                    runCatching { Shizuku.unbindUserService(args, callback, true) }
+                                }
+                            } catch (error: Throwable) {
+                                continuation.resumeWith(Result.failure(error))
                             }
                         }
                     }
-                    try {
-                        Shizuku.bindUserService(args, callback)
-                        continuation.invokeOnCancellation {
-                            runCatching { Shizuku.unbindUserService(args, callback, true) }
-                        }
-                    } catch (error: Throwable) {
-                        continuation.resumeWith(Result.failure(error))
-                    }
+                } catch (timeout: TimeoutCancellationException) {
+                    throw IllegalStateException("Timed out connecting to Shizuku command service", timeout)
                 }
                 try {
                     val output = JSONObject(service.execute(normalized))
@@ -304,6 +329,7 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
             "dhizukuEnabled" -> settingsRepo.isDhizukuEnabled = enabled
             "whitelistMode" -> settingsRepo.isWhitelistMode = enabled
             "donateButtonHidden" -> settingsRepo.isDonateButtonHidden = enabled
+            "allowOwnershipChanges" -> settingsRepo.isAllowOwnershipChanges = enabled
             else -> return result.error("invalid_argument", "Unknown setting", null)
         }
         result.success(settings())
@@ -553,6 +579,7 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
 
     companion object {
         const val CHANNEL = "com.rosan.dhizuku/bridge"
+        private const val COMMAND_BIND_TIMEOUT_MS = 15_000L
         private val frozenPackagesMutex = Mutex()
     }
 }

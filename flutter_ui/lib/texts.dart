@@ -214,6 +214,22 @@ String tr(BuildContext context, String key) {
     'dhizuku_enabled': ['启用 Dhizuku API', 'Enable Dhizuku API'],
     'whitelist': ['白名单模式', 'Whitelist mode'],
     'hide_donate': ['隐藏捐赠入口', 'Hide donation link'],
+    'allow_ownership_changes': [
+      '允许变更所有者',
+      'Allow ownership changes',
+    ],
+    'allow_ownership_changes_dsp': [
+      '关闭后将拦截第三方应用通过 Dhizuku API 转移或清除所有者权限',
+      'Blocks third-party apps from transferring or clearing owner privileges via Dhizuku API when disabled',
+    ],
+    'allow_ownership_changes_confirm_title': [
+      '允许第三方应用变更所有者？',
+      'Allow ownership changes?',
+    ],
+    'allow_ownership_changes_confirm_dsp': [
+      '开启后，已授权的第三方应用可通过 Dhizuku API 转移或清除设备/配置文件所有者权限，可能导致你失去对设备所有者的控制。仅在明确需要时临时开启。',
+      'When enabled, authorized third-party apps can transfer or clear device or profile owner privileges through the Dhizuku API, which may cause you to lose control of device ownership. Enable this only when needed.',
+    ],
     'donate': ['捐赠项目', 'Support the project'],
     'shutdown': ['关闭', 'Shutdown'],
     'view_authorized_apps': ['查看授权应用', 'View authorized apps'],

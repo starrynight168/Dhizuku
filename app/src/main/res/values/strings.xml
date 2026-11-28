@@ -78,5 +78,6 @@
     <string name="unblock_app">Unblock App</string>
     <string name="auto_deny_in_seconds">Auto-deny in %d seconds</string>
     <string name="denying_access">Denying access…</string>
+    <string name="ownership_change_blocked">Ownership changes via Dhizuku API are blocked. Enable in Settings if needed.</string>
 
 </resources>
