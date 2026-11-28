@@ -5,6 +5,8 @@
     <string name="agreement_text">Here is our user policy, Please read and agree to it. &lt;a href="https://iamr0s.github.io/Dhizuku/TERMS.html"&gt;Terms of Use&lt;/a&gt;, &lt;a href="https://iamr0s.github.io/Dhizuku/PRIVACY.html"&gt;Privacy Policy&lt;/a&gt; This message won\'t show up again after you agree.</string>
     <string name="agree_text">Agree</string>
     <string name="permission_description">Use Dhizuku\'s API</string>
+    <string name="biometric_title">Authorize Dhizuku access</string>
+    <string name="biometric_subtitle">Verify your identity to grant API access</string>
     <!-- Commonly  used characters -->
     <string name="copy">Copy</string>
     <string name="cancel">Cancel</string>

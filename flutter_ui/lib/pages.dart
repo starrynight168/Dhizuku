@@ -1552,7 +1552,19 @@ class SettingsPage extends StatelessWidget {
     try {
       onChanged(await DhizukuApi.setSetting(key, value));
     } catch (error) {
-      if (context.mounted) _showActionError(context, error);
+      if (context.mounted) {
+        if (key == 'biometricEnabled' &&
+            error is PlatformException &&
+            error.code == 'biometric_unavailable') {
+          showDhizukuBanner(
+            context,
+            tr(context, 'biometric_unavailable'),
+            level: prism.BannerLevel.error,
+          );
+        } else {
+          _showActionError(context, error);
+        }
+      }
     }
   }
 
@@ -1627,6 +1639,14 @@ class SettingsPage extends StatelessWidget {
                 value: settings['allowOwnershipChanges'] == true,
                 onChanged: (value) =>
                     _toggle(context, 'allowOwnershipChanges', value),
+              ),
+              const DhizukuDivider(indent: 16, endIndent: 16),
+              DhizukuSwitchRow(
+                title: tr(context, 'biometric_permission'),
+                subtitle: tr(context, 'biometric_permission_dsp'),
+                value: settings['biometricEnabled'] == true,
+                onChanged: (value) =>
+                    _toggle(context, 'biometricEnabled', value),
               ),
             ],
           ),

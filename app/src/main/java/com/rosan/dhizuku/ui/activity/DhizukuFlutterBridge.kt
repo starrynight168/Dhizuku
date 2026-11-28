@@ -21,6 +21,7 @@ import com.rosan.dhizuku.data.account.entity.AccountAuthenticatorEntity
 import com.rosan.dhizuku.data.account.entity.AccountEntity
 import com.rosan.dhizuku.data.account.repo.UserService
 import com.rosan.dhizuku.data.common.util.getPackageInfoForUid
+import com.rosan.dhizuku.data.common.util.BiometricAuth
 import com.rosan.dhizuku.data.common.util.requireShizukuPermissionGranted
 import com.rosan.dhizuku.data.common.util.signature
 import com.rosan.dhizuku.command.CommandUserService
@@ -162,7 +163,8 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
         "dhizukuEnabled" to settingsRepo.isDhizukuEnabled,
         "whitelistMode" to settingsRepo.isWhitelistMode,
         "donateButtonHidden" to settingsRepo.isDonateButtonHidden,
-        "allowOwnershipChanges" to settingsRepo.isAllowOwnershipChanges
+        "allowOwnershipChanges" to settingsRepo.isAllowOwnershipChanges,
+        "biometricEnabled" to settingsRepo.isBiometricEnabled
     )
 
     private fun commandFavorites(): List<Map<String, String>> {
@@ -330,6 +332,16 @@ class DhizukuFlutterBridge(private val activity: ComponentActivity) :
             "whitelistMode" -> settingsRepo.isWhitelistMode = enabled
             "donateButtonHidden" -> settingsRepo.isDonateButtonHidden = enabled
             "allowOwnershipChanges" -> settingsRepo.isAllowOwnershipChanges = enabled
+            "biometricEnabled" -> {
+                if (enabled && !BiometricAuth.canProtect(activity)) {
+                    return result.error(
+                        "biometric_unavailable",
+                        "Set a secure screen lock or enroll a biometric before enabling this setting.",
+                        null
+                    )
+                }
+                settingsRepo.isBiometricEnabled = enabled
+            }
             else -> return result.error("invalid_argument", "Unknown setting", null)
         }
         result.success(settings())

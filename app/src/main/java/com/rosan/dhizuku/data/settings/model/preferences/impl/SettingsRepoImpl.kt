@@ -28,6 +28,9 @@ class SettingsRepoImpl : SettingsRepo, KoinComponent {
     override fun flowAllowOwnershipChanges(): Flow<Boolean> =
         prefs.asFlow("allow_ownership_changes", false)
 
+    override fun flowBiometricEnabled(): Flow<Boolean> =
+        prefs.asFlow("biometric_enabled", false)
+
     override var isWhitelistMode: Boolean
         get() = prefs.getBoolean("whitelist_mode", false)
         set(value) = prefs.edit(true) {
@@ -50,5 +53,11 @@ class SettingsRepoImpl : SettingsRepo, KoinComponent {
         get() = prefs.getBoolean("allow_ownership_changes", false)
         set(value) = prefs.edit(true) {
             putBoolean("allow_ownership_changes", value)
+        }
+
+    override var isBiometricEnabled: Boolean
+        get() = prefs.getBoolean("biometric_enabled", false)
+        set(value) = prefs.edit(true) {
+            putBoolean("biometric_enabled", value)
         }
 }

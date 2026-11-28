@@ -115,6 +115,7 @@ dependencies {
 
     implementation(libs.androidx.core)
     implementation(libs.androidx.lifecycle)
+    implementation(libs.androidx.biometric)
 
     implementation(libs.room.runtime)
     ksp(libs.room.compiler)

@@ -3,9 +3,13 @@ package com.rosan.dhizuku.ui.activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import androidx.biometric.BiometricPrompt
 import androidx.lifecycle.lifecycleScope
 import com.rosan.dhizuku.aidl.IDhizukuRequestPermissionListener
 import com.rosan.dhizuku.data.common.util.getPackageInfoForUid
+import com.rosan.dhizuku.data.common.util.BiometricAuth
 import com.rosan.dhizuku.data.common.util.signature
 import com.rosan.dhizuku.data.settings.model.room.entity.AppEntity
 import com.rosan.dhizuku.data.settings.repo.AppRepo
@@ -24,6 +28,7 @@ class RequestPermissionActivity : FlutterFragmentActivity(), KoinComponent {
     companion object {
         const val UID_ERR = -1
         const val AUTO_DENY_SECONDS = 15
+        private const val AUTHENTICATION_TIMEOUT_MS = 20_000L
     }
 
     private val appRepo by inject<AppRepo>()
@@ -38,6 +43,10 @@ class RequestPermissionActivity : FlutterFragmentActivity(), KoinComponent {
     private var persisted = false
     private var requestGeneration = 0L
     private var flutterBridge: DhizukuFlutterBridge? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var authenticating = false
+    private var authenticationPrompt: BiometricPrompt? = null
+    private var authenticationTimeout: Runnable? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -57,6 +66,7 @@ class RequestPermissionActivity : FlutterFragmentActivity(), KoinComponent {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        cancelAuthentication()
         if (!responseGiven) resolvePermission(false, closeActivity = false)
         responseGiven = false
         persisted = false
@@ -76,7 +86,7 @@ class RequestPermissionActivity : FlutterFragmentActivity(), KoinComponent {
 
     override fun onPause() {
         super.onPause()
-        respondPermission(false)
+        if (!authenticating) respondPermission(false)
     }
 
     fun permissionInitialData(): Map<String, Any?> = mapOf(
@@ -94,7 +104,47 @@ class RequestPermissionActivity : FlutterFragmentActivity(), KoinComponent {
     )
 
     fun respondPermission(allow: Boolean) {
-        resolvePermission(allow, closeActivity = true)
+        if (!allow || !settingsRepo.isBiometricEnabled) {
+            resolvePermission(allow, closeActivity = true)
+            return
+        }
+        if (responseGiven || authenticating) return
+        authenticating = true
+        val generation = requestGeneration
+        val timeout = Runnable {
+            if (generation == requestGeneration && !responseGiven) {
+                authenticationPrompt?.cancelAuthentication()
+                completeAuthentication(false)
+            }
+        }
+        authenticationTimeout = timeout
+        mainHandler.postDelayed(timeout, AUTHENTICATION_TIMEOUT_MS)
+        authenticationPrompt = BiometricAuth.prompt(this) { authenticated ->
+            if (generation == requestGeneration && !responseGiven) {
+                completeAuthentication(authenticated)
+            }
+        }
+    }
+
+    private fun completeAuthentication(authenticated: Boolean) {
+        authenticationTimeout?.let(mainHandler::removeCallbacks)
+        authenticationTimeout = null
+        authenticationPrompt = null
+        authenticating = false
+        resolvePermission(authenticated, closeActivity = true)
+    }
+
+    private fun cancelAuthentication() {
+        authenticationTimeout?.let(mainHandler::removeCallbacks)
+        authenticationTimeout = null
+        authenticationPrompt?.cancelAuthentication()
+        authenticationPrompt = null
+        authenticating = false
+    }
+
+    override fun onDestroy() {
+        cancelAuthentication()
+        super.onDestroy()
     }
 
     override fun finish() {
@@ -155,7 +205,7 @@ class RequestPermissionActivity : FlutterFragmentActivity(), KoinComponent {
                 }
             }
             if (generation == requestGeneration && !responseGiven && decision != null) {
-                respondPermission(decision)
+                resolvePermission(decision, closeActivity = true)
             }
         }
     }

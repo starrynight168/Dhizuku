@@ -22,6 +22,7 @@ import com.rosan.dhizuku.api.Dhizuku
 import com.rosan.dhizuku.data.common.util.has
 import com.rosan.dhizuku.data.common.util.requireDhizukuPermissionGranted
 import com.rosan.dhizuku.data.common.util.requireShizukuPermissionGranted
+import com.rosan.dhizuku.data.common.util.UserSetupCompleteBypass
 import com.rosan.dhizuku.server.DhizukuState
 
 import kotlinx.coroutines.CancellationException
@@ -161,12 +162,14 @@ class ActivateViewModel : ViewModel(), KoinComponent {
         requireShizukuPermissionGranted() {
             // wait for the account cache be refreshed
             delay(1500)
-            requireBinderWrapperDevicePolicyManager(wrapper = {
-                ShizukuBinderWrapper(it)
-            }) {
-                val userId = Os.getuid() / 100000
-                if (!it.isAdminActive(who)) it.setActiveAdmin(who, true, userId)
-                it.setDeviceOwner(who, null, userId)
+            val userId = Os.getuid() / 100000
+            UserSetupCompleteBypass.runWithTemporaryBypass(context, userId) {
+                requireBinderWrapperDevicePolicyManager(wrapper = {
+                    ShizukuBinderWrapper(it)
+                }) {
+                    if (!it.isAdminActive(who)) it.setActiveAdmin(who, true, userId)
+                    it.setDeviceOwner(who, null, userId)
+                }
             }
         }
 
@@ -175,12 +178,14 @@ class ActivateViewModel : ViewModel(), KoinComponent {
         requireShizukuPermissionGranted() {
             // wait for the account cache be refreshed
             delay(1500)
-            requireBinderWrapperDevicePolicyManager(wrapper = {
-                ShizukuBinderWrapper(it)
-            }) {
-                val userId = Os.getuid() / 100000
-                if (!it.isAdminActive(who)) it.setActiveAdmin(who, true, userId)
-                it.setProfileOwner(who, null, userId)
+            val userId = Os.getuid() / 100000
+            UserSetupCompleteBypass.runWithTemporaryBypass(context, userId) {
+                requireBinderWrapperDevicePolicyManager(wrapper = {
+                    ShizukuBinderWrapper(it)
+                }) {
+                    if (!it.isAdminActive(who)) it.setActiveAdmin(who, true, userId)
+                    it.setProfileOwner(who, null, userId)
+                }
             }
         }
 

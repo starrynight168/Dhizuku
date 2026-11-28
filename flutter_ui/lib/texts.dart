@@ -230,6 +230,15 @@ String tr(BuildContext context, String key) {
       '开启后，已授权的第三方应用可通过 Dhizuku API 转移或清除设备/配置文件所有者权限，可能导致你失去对设备所有者的控制。仅在明确需要时临时开启。',
       'When enabled, authorized third-party apps can transfer or clear device or profile owner privileges through the Dhizuku API, which may cause you to lose control of device ownership. Enable this only when needed.',
     ],
+    'biometric_permission': ['授权前验证身份', 'Authenticate before granting'],
+    'biometric_permission_dsp': [
+      '批准 Dhizuku API 权限前，使用指纹、人脸或锁屏凭据验证。未设置可用验证方式时将拒绝本次授权。',
+      'Verify with biometrics or device credentials before granting Dhizuku API access. Requests are denied if no verification method is available.',
+    ],
+    'biometric_unavailable': [
+      '请先在系统设置中设置锁屏凭据或录入生物识别，再开启此选项。',
+      'Set a screen lock or enroll biometrics in system settings before enabling this option.',
+    ],
     'donate': ['捐赠项目', 'Support the project'],
     'shutdown': ['关闭', 'Shutdown'],
     'view_authorized_apps': ['查看授权应用', 'View authorized apps'],
